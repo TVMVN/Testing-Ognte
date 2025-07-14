@@ -1,71 +1,58 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
 from .models import Candidate
-from .serializers import CandidateSerializer
+from .serializers import CandidateProfileSerializer, MyApplicationSerializer
 from .permissions import IsCandidateUser
-from universities.permissions import IsUniversityUser 
-from universities.models import University
-from users.utils import create_notification
-from rest_framework.exceptions import ValidationError
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .serializers import CandidateRegisterSerializer
-from users.utils import notify_admins 
-from django.http import Http404
+from applications.models import JobPost, Application
+from applications.serializers import ApplicationCreateSerializer
+from .utils import create_notification
 
-class CandidateRegisterView(APIView):
-    def post(self, request):
-        serializer = CandidateRegisterSerializer(data=request.data)
-        try:
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response({"message": "Candidate registered successfully."}, status=status.HTTP_201_CREATED)
-        except ValidationError as e:
-            errors = e.detail
-
-            # Notify on non_field_errors (e.g., file type issues)
-            non_field_errors = errors.get('non_field_errors', None)
-            if non_field_errors:
-                notify_admins(
-                    title="Candidate Registration Error",
-                    message=str(non_field_errors[0]),
-                    notification_type="system"
-                )
-
-            return Response({"error": errors}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CandidateProfileView(generics.RetrieveUpdateAPIView):
-    serializer_class = CandidateSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_object(self):
-        try:
-            return Candidate.objects.select_related('user', 'university').get(user=self.request.user)
-        except Candidate.DoesNotExist:
-            raise Http404("Candidate profile not found")
-
-    def update(self, request, *args, **kwargs):
-        response = super().update(request, *args, **kwargs)
-        if response.status_code == status.HTTP_200_OK:
-            create_notification(
-                request.user,
-                'Profile Updated',
-                'Your candidate profile has been updated successfully.',
-                'profile_update'
-            )
-        return response
-
-
-
-class UniversityCandidatesListView(generics.ListAPIView):
-    serializer_class = CandidateSerializer
-    permission_classes = [permissions.IsAuthenticated, IsUniversityUser]
+class MyApplicationsView(generics.ListAPIView):
+    serializer_class = MyApplicationSerializer
+    permission_classes = [IsAuthenticated, IsCandidateUser]
 
     def get_queryset(self):
-        try:
-            university = University.objects.get(user=self.request.user) 
-            queryset = Candidate.objects.select_related('user', 'university')
-        except:
-            pass
+        return Application.objects.filter(candidate=self.request.user.candidate_profile)
+
+
+class ApplyToJobView(generics.CreateAPIView):
+    serializer_class = ApplicationCreateSerializer
+    permission_classes = [IsAuthenticated, IsCandidateUser]
+
+    def get_serializer_context(self):
+        """Pass candidate and job_post via context to serializer."""
+        context = super().get_serializer_context()
+        context['candidate'] = self.request.user.candidate
+        context['job_post'] = get_object_or_404(JobPost, id=self.kwargs['job_id'])
+        return context
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data, context=self.get_serializer_context())
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response({'detail': 'Application submitted.'}, status=status.HTTP_201_CREATED)
+    
+    def perform_create(self, serializer):
+        candidate = self.request.user.candidate
+        job_post = get_object_or_404(JobPost, id=self.kwargs['job_id'])
+        application = serializer.save(candidate=candidate, job_post=job_post)
+    
+        # 🔔 Create notification
+        create_notification(
+            self.request.user,
+            "Application Submitted",
+            f"You applied for '{job_post.title}' successfully.",
+            "application_submitted"
+        )
+    
+        recruiter_user = job_post.recruiter.user
+        candidate_name = self.request.user.get_full_name() or self.request.user.username
+    
+        create_notification(
+            recruiter_user,
+            "New Application Received",
+            f"{candidate_name} applied for your job '{job_post.title}'.",
+            "application_received"
+        )
