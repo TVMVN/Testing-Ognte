@@ -12,6 +12,12 @@ from .serializers import (
     ApplicationDetailSerializer, ApplicationStatusUpdateSerializer
 )
 from .filtering import JobPostFilter, ApplicationFilter
+from recruiters.models import Recruiter
+from .models import Salary
+from .serializers import SalarySerializer
+from .permissions import IsRecruiter
+from rest_framework.exceptions import PermissionDenied
+
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -20,7 +26,7 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 class JobPostViewSet(viewsets.ModelViewSet):
     queryset = JobPost.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsRecruiter]
     filter_backends = [DjangoFilterBackend, drf_filters.OrderingFilter, drf_filters.SearchFilter]
     filterset_class = JobPostFilter
     search_fields = ['title', 'description', 'skills']
@@ -33,8 +39,17 @@ class JobPostViewSet(viewsets.ModelViewSet):
         return JobPostingSerializer
 
     def perform_create(self, serializer):
-        recruiter = self.request.user.recruiter
-        serializer.save(recruiter=recruiter)
+        from recruiters.models import Recruiter  # ✅ make sure this import is there
+
+def perform_create(self, serializer):
+    user = self.request.user
+
+    if user.role != 'recruiter':
+        raise PermissionDenied("Only recruiters can post jobs.")
+    recruiter, created = Recruiter.objects.get_or_create(user=user)
+    serializer.save(recruiter=recruiter)
+
+       
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def top_jobs(self, request):
@@ -147,3 +162,8 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             "range1": {"start": range1_start, "end": range1_end, "count": r1_count},
             "range2": {"start": range2_start, "end": range2_end, "count": r2_count}
         })
+
+class SalaryViewSet(viewsets.ModelViewSet):
+    queryset = Salary.objects.all()
+    serializer_class = SalarySerializer
+    permission_classes = [permissions.IsAuthenticated, IsRecruiter]

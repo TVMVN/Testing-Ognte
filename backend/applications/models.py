@@ -40,7 +40,7 @@ class JobPost(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField()
     location = models.CharField(max_length=100, default='Remote')
-    skills = models.CharField(max_length=255)
+    skills = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_remote = models.BooleanField(default=False)
