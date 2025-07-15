@@ -10,8 +10,8 @@ from django.utils import timezone
 from django.db import transaction
 from django.core.paginator import Paginator
 from rest_framework_simplejwt.tokens import RefreshToken
-from candidates.serializers import CandidateRegisterSerializer
-from recruiters.serializers import RecruiterRegisterSerializer
+from candidates.auth_serializers import CandidateRegisterSerializer
+from recruiters.auth_serializers import RecruiterRegisterSerializer
 from universities.serializers import UniversityRegisterSerializer
 from .serializers import *
 from .models import User, Notification

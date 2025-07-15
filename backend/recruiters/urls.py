@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import RecruiterProfileView, RecruiterListView
+from .auth_views import RecruiterProfileView, RecruiterListView
 
 urlpatterns = [
     path('profile/', RecruiterProfileView.as_view(), name='recruiter-profile'),

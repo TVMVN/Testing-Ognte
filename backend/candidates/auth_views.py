@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from .models import Candidate
-from .serializers import CandidateSerializer
+from .auth_serializers import CandidateSerializer
 from .permissions import IsCandidateUser
 from universities.permissions import IsUniversityUser 
 from universities.models import University
@@ -10,7 +10,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import CandidateRegisterSerializer
+from .auth_serializers import CandidateRegisterSerializer
 from users.utils import notify_admins 
 from django.http import Http404
 

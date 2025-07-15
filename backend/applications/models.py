@@ -87,7 +87,8 @@ class Application(models.Model):
         ordering = ['-applied_at']
 
     def __str__(self):
-        return f"{self.candidate.user.email} applied for {self.job_post.title}"
+        return f"{self.candidate.user.email} → {self.job_post.title} on {self.applied_at.strftime('%Y-%m-%d %H:%M')}"
+
 
     def clean(self):
         if self.status == 'accepted' and not self.resume:

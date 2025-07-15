@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from .models import Recruiter
-from .serializers import RecruiterSerializer
+from .auth_serializers import RecruiterSerializer
 from .permissions import IsRecruiterUser
 from users.utils import create_notification
 

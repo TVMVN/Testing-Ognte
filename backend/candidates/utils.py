@@ -1,4 +1,4 @@
-from .models import Notification
+from users.models import Notification
 
 def create_notification(user, title, message, type="general"):
     Notification.objects.create(
