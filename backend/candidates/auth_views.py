@@ -65,7 +65,9 @@ class UniversityCandidatesListView(generics.ListAPIView):
 
     def get_queryset(self):
         try:
-            university = University.objects.get(user=self.request.user) 
-            queryset = Candidate.objects.select_related('user', 'university')
-        except:
-            pass
+            university = University.objects.get(user=self.request.user)
+        except University.DoesNotExist:
+            raise Http404("University not found for the current user")
+
+        return Candidate.objects.filter(university=university).select_related("user", "university")
+
