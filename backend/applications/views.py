@@ -87,24 +87,24 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         return ApplicationDetailSerializer
 
     def perform_create(self, serializer):
-        candidate = self.request.user.candidate
+        candidate = self.request.user.candidate_profile.first()  # ✅ FIXED
         serializer.save(candidate=candidate)
 
     def get_queryset(self):
         user = self.request.user
-        if hasattr(user, 'candidate'):
-            return Application.objects.filter(candidate=user.candidate)
-        elif hasattr(user, 'recruiter'):
+        if user.role == 'candidate' and user.candidate_profile.exists():  # ✅ FIXED
+            return Application.objects.filter(candidate=user.candidate_profile.first())
+        elif user.role == 'recruiter' and hasattr(user, 'recruiter'):
             return Application.objects.filter(job_post__recruiter=user.recruiter)
         return Application.objects.none()
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def status_summary(self, request):
         user = request.user
-        if hasattr(user, 'recruiter'):
+        if user.role == 'recruiter' and hasattr(user, 'recruiter'):
             qs = Application.objects.filter(job_post__recruiter=user.recruiter)
-        elif hasattr(user, 'candidate'):
-            qs = Application.objects.filter(candidate=user.candidate)
+        elif user.role == 'candidate' and user.candidate_profile.exists():
+            qs = Application.objects.filter(candidate=user.candidate_profile.first())
         else:
             return Response(status=403)
 
@@ -117,10 +117,10 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         days = int(request.query_params.get('days', 7))
         start_date = now().date() - timedelta(days=days)
 
-        if hasattr(user, 'recruiter'):
+        if user.role == 'recruiter' and hasattr(user, 'recruiter'):
             qs = Application.objects.filter(job_post__recruiter=user.recruiter, applied_at__date__gte=start_date)
-        elif hasattr(user, 'candidate'):
-            qs = Application.objects.filter(candidate=user.candidate, applied_at__date__gte=start_date)
+        elif user.role == 'candidate' and user.candidate_profile.exists():
+            qs = Application.objects.filter(candidate=user.candidate_profile.first(), applied_at__date__gte=start_date)
         else:
             return Response(status=403)
 
@@ -139,10 +139,10 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             return Response({"error": "All date ranges must be provided."}, status=400)
 
         base_filter = {}
-        if hasattr(user, 'recruiter'):
+        if user.role == 'recruiter' and hasattr(user, 'recruiter'):
             base_filter['job_post__recruiter'] = user.recruiter
-        elif hasattr(user, 'candidate'):
-            base_filter['candidate'] = user.candidate
+        elif user.role == 'candidate' and user.candidate_profile.exists():
+            base_filter['candidate'] = user.candidate_profile.first()
         else:
             return Response(status=403)
 
@@ -162,6 +162,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             "range1": {"start": range1_start, "end": range1_end, "count": r1_count},
             "range2": {"start": range2_start, "end": range2_end, "count": r2_count}
         })
+
 
 class SalaryViewSet(viewsets.ModelViewSet):
     queryset = Salary.objects.all()
