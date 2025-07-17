@@ -110,30 +110,39 @@ class CandidateSerializer(serializers.ModelSerializer):
 class ApplicationCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Application
-        fields = ['job_post', 'resume', 'cover_letter']
+        fields = ['resume', 'cover_letter']  # add other fields if needed
 
     def validate(self, data):
-        request = self.context.get('request')
-        candidate = getattr(request.user, 'candidate', None)
-        job_post = data.get("job_post")
+        candidate = self.context.get("candidate")
+        job_post = self.context.get("job_post")
 
         if not candidate or not job_post:
             raise serializers.ValidationError("Applicant and job post must be provided.")
 
+        # Check for duplicate
         existing = Application.objects.filter(
             candidate=candidate,
             job_post=job_post
         ).exclude(status__in=["accepted", "rejected"]).first()
 
         if existing:
-            raise serializers.ValidationError("Applicant already applied.")
+            raise serializers.ValidationError("Applicant already applied to this job.")
 
         return data
 
+
     def create(self, validated_data):
         request = self.context.get('request')
-        candidate = getattr(request.user, 'candidate', None)
-        return Application.objects.create(candidate=candidate, **validated_data)
+        candidate = self.context.get("candidate")
+        job_post = self.context.get('job_post')
+        
+        # Safely inject both
+        validated_data['candidate'] = candidate
+        validated_data['job_post'] = job_post
+
+        return Application.objects.create(**validated_data)
+
+
 
 class ApplicationDetailSerializer(serializers.ModelSerializer):
     candidate = CandidateSerializer(read_only=True)

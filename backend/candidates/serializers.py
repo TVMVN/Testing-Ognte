@@ -18,22 +18,26 @@ class MyApplicationSerializer(serializers.ModelSerializer):
         model = Application
         fields = ['id', 'job_post', 'status', 'applied_at']
 
+
 class ApplicationCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Application
-        fields = ['resume', 'cover_letter']  # ✅ Exclude 'job_post'
-        extra_kwargs = {
-            'resume': {'required': True},
-            'cover_letter': {'required': False},
-            }
+        fields = ['resume', 'cover_letter']
 
+    def _get_candidate(self):
+        """Handles both reverse one-to-one and one-to-many related_name"""
+        request = self.context.get('request')
+        candidate_profile = getattr(request.user, 'candidate_profile', None)
+        if candidate_profile and hasattr(candidate_profile, 'first'):
+            return candidate_profile.first()
+        return candidate_profile
 
     def validate(self, data):
-        candidate = self.context.get('candidate')
-        job_post = self.context.get('job_post')
+        candidate = self._get_candidate()
+        job_post = self.context.get("job_post")
 
         if not candidate or not job_post:
-            raise serializers.ValidationError("Candidate and job post are required.")
+            raise serializers.ValidationError("Applicant and job post must be provided.")
 
         existing = Application.objects.filter(
             candidate=candidate,
@@ -41,11 +45,11 @@ class ApplicationCreateSerializer(serializers.ModelSerializer):
         ).exclude(status__in=["accepted", "rejected"]).first()
 
         if existing:
-            raise serializers.ValidationError("You have already applied to this job.")
+            raise serializers.ValidationError("Applicant already applied.")
 
         return data
 
     def create(self, validated_data):
-        candidate = self.context['candidate']
-        job_post = self.context['job_post']
+        candidate = self._get_candidate()
+        job_post = self.context.get("job_post")
         return Application.objects.create(candidate=candidate, job_post=job_post, **validated_data)
