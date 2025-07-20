@@ -47,6 +47,7 @@ class JobPost(models.Model):
     is_active = models.BooleanField(default=True)
     application_deadline = models.DateField(null=True, blank=True)
     salary = models.OneToOneField(Salary, on_delete=models.SET_NULL, null=True, blank=True)
+    duration_of_internship = models.CharField(max_length=100)
 
     objects = models.Manager()
     active = ActiveJobManager()
