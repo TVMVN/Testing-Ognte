@@ -85,7 +85,8 @@ class RecruiterSerializer(serializers.ModelSerializer):
 class JobPostingSerializer(serializers.ModelSerializer):
     recruiter = RecruiterSerializer(read_only=True)
     applications_count = serializers.SerializerMethodField()
-
+    match_score = serializers.FloatField(read_only=True)
+    
     class Meta:
         model = JobPost
         fields = '__all__'

@@ -18,8 +18,8 @@ class Candidate(models.Model):
     date_of_birth = models.DateField(null=True, blank=True)
     skills = models.JSONField(default=list, blank=True)
     location = models.CharField(max_length=100)
-    duration_of_internship = models.CharField(max_length=100)
-
+    duration_of_internship = models.IntegerField()
+    internship_focus_area = models.CharField(max_length=100)
 
     
     def __str__(self):

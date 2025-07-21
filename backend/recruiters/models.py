@@ -12,6 +12,7 @@ class Recruiter(models.Model):
     company_size = models.CharField(max_length=50)
     bio = models.TextField(blank=True)
     logo = models.ImageField(upload_to='logos/', blank=True, null=True)
+    duration_of_internship = models.CharField(max_length=100)
 
     def __str__(self):
         return self.user.username

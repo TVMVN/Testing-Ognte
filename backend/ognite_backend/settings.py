@@ -83,6 +83,7 @@ INSTALLED_APPS = [
     'recruiters',
     'universities',
     'applications',
+    'matching',
 ]
 
 MIDDLEWARE = [

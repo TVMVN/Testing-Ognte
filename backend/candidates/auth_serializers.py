@@ -30,7 +30,7 @@ class CandidateRegisterSerializer(serializers.ModelSerializer):
         fields = [
             'username', 'first_name', 'last_name', 'email', 'password', 'confirm_password',
             'professional_title', 'university', 'degree', 'graduation_year',
-            'phone', 'city', 'gender', 'languages', 'employment_type',
+            'phone', 'city', 'gender','internship_focus_area', 'languages', 'employment_type',
             'resume', 'profile_picture', 'date_of_birth', 'skills'
         ]
         extra_kwargs = {

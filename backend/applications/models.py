@@ -4,6 +4,10 @@ from django.core.exceptions import ValidationError
 from django.utils.timezone import now
 from candidates.models import Candidate
 from recruiters.models import Recruiter
+from django.db import models
+from recruiters.models import Recruiter
+
+
 
 class ActiveJobManager(models.Manager):
     def get_queryset(self):
@@ -35,9 +39,6 @@ class Salary(models.Model):
     def __str__(self):
         return f"{self.status} - {self.amount}{self.currency} / {self.payment_frequency}"
 
-from django.db import models
-from recruiters.models import Recruiter
-from .models import Salary  # adjust if needed
 
 class ActiveJobManager(models.Manager):
     def get_queryset(self):
@@ -48,16 +49,18 @@ class JobPost(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField()
     location = models.CharField(max_length=100, default='Remote')
-    skills = models.JSONField(default=list, blank=True)
+    required_skills = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_remote = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     application_deadline = models.DateField(null=True, blank=True)
+    number_of_slots = models.PositiveIntegerField(default=1)
+    industry = models.CharField(max_length=200)
 
     # 🔁 Updated for reusability
     salary = models.ForeignKey(Salary, on_delete=models.SET_NULL, null=True, blank=True, related_name='job_posts')
-    duration_of_internship = models.CharField(max_length=100, null=True, blank=True)
+    duration_of_internship = models.IntegerField()
 
     # ✅ Dual manager pattern
     objects = models.Manager()        
@@ -89,12 +92,15 @@ class Application(models.Model):
 
     job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, related_name='applications')
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='applications')
+    
     resume = models.FileField(
         upload_to='resumes/',
         validators=[FileExtensionValidator(allowed_extensions=['pdf', 'doc', 'docx'])]
     )
+    
     cover_letter = models.TextField(blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
     applied_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -105,7 +111,22 @@ class Application(models.Model):
     def __str__(self):
         return f"{self.candidate.user.email} → {self.job_post.title} on {self.applied_at.strftime('%Y-%m-%d %H:%M')}"
 
-
     def clean(self):
         if self.status == 'accepted' and not self.resume:
             raise ValidationError("Accepted applications must include a resume.")
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        # 🔄 Auto-reject others if slots filled
+        if self.status == 'accepted':
+            accepted_count = Application.objects.filter(
+                job_post=self.job_post, status='accepted'
+            ).count()
+
+            if accepted_count >= self.job_post.number_of_slots:
+                Application.objects.filter(
+                    job_post=self.job_post,
+                    status='pending'
+                ).exclude(id=self.id).update(status='rejected')
+

@@ -92,10 +92,15 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'candidate' and user.candidate_profile.exists():  # ✅ FIXED
+
+        # Candidate view: only their own applications
+        if user.role == 'candidate' and hasattr(user, 'candidate_profile'):
             return Application.objects.filter(candidate=user.candidate_profile.first())
+
+        # Recruiter view: only apps for their own jobs
         elif user.role == 'recruiter' and hasattr(user, 'recruiter'):
             return Application.objects.filter(job_post__recruiter=user.recruiter)
+
         return Application.objects.none()
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
