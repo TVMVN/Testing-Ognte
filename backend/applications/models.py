@@ -35,6 +35,14 @@ class Salary(models.Model):
     def __str__(self):
         return f"{self.status} - {self.amount}{self.currency} / {self.payment_frequency}"
 
+from django.db import models
+from recruiters.models import Recruiter
+from .models import Salary  # adjust if needed
+
+class ActiveJobManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
 class JobPost(models.Model):
     recruiter = models.ForeignKey(Recruiter, on_delete=models.CASCADE, related_name='job_posts')
     title = models.CharField(max_length=100)
@@ -46,11 +54,18 @@ class JobPost(models.Model):
     is_remote = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     application_deadline = models.DateField(null=True, blank=True)
-    salary = models.OneToOneField(Salary, on_delete=models.SET_NULL, null=True, blank=True)
-    duration_of_internship = models.CharField(max_length=100)
 
-    objects = models.Manager()
-    active = ActiveJobManager()
+    # 🔁 Updated for reusability
+    salary = models.ForeignKey(Salary, on_delete=models.SET_NULL, null=True, blank=True, related_name='job_posts')
+    duration_of_internship = models.CharField(max_length=100, null=True, blank=True)
+
+    # ✅ Dual manager pattern
+    objects = models.Manager()        
+    active_jobs = ActiveJobManager()  
+
+    def __str__(self):
+        return self.title
+
 
     class Meta:
         ordering = ['-created_at']
