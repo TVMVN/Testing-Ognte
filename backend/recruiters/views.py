@@ -1,4 +1,4 @@
-from rest_framework import generics, permissions, viewsets
+from rest_framework import generics, permissions, viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.utils.timezone import now
@@ -32,7 +32,14 @@ class JobPostViewSet(viewsets.ModelViewSet):
         return JobPost.objects.none()
 
     def perform_create(self, serializer):
-        serializer.save(recruiter=self.request.user.recruiter)
+        try:
+            serializer.save(recruiter=self.request.user.recruiter)
+        except AttributeError:
+            # Handle case where user doesn't have a recruiter profile
+            return Response(
+                {"error": "User doesn't have a recruiter profile"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class EmployerAnalyticsViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated, IsRecruiterUser]

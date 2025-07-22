@@ -96,9 +96,36 @@ class JobPostingSerializer(serializers.ModelSerializer):
         return obj.applications.count()
 
 class JobPostingCreateSerializer(serializers.ModelSerializer):
+    # Accept nested salary data
+    salary_amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
+    salary_currency = serializers.ChoiceField(choices=Salary.CURRENCY_CHOICES, required=False, allow_null=True)
+    salary_status = serializers.ChoiceField(choices=Salary.STATUS_CHOICES, required=False, allow_null=True)
+    salary_frequency = serializers.ChoiceField(choices=Salary.FREQUENCY_CHOICES, required=False, allow_null=True)
+    
     class Meta:
         model = JobPost
         exclude = ['recruiter', 'created_at', 'updated_at']
+        
+    def create(self, validated_data):
+        # Extract salary data
+        salary_amount = validated_data.pop('salary_amount', None)
+        salary_currency = validated_data.pop('salary_currency', None)
+        salary_status = validated_data.pop('salary_status', None)
+        salary_frequency = validated_data.pop('salary_frequency', None)
+        
+        # Create salary object if salary data is provided
+        salary = None
+        if salary_amount is not None:
+            salary = Salary.objects.create(
+                amount=salary_amount,
+                currency=salary_currency or 'naira',
+                status=salary_status or 'unpaid',
+                payment_frequency=salary_frequency or 'monthly'
+            )
+        
+        # Create job post
+        job_post = JobPost.objects.create(salary=salary, **validated_data)
+        return job_post
 
 class CandidateSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
