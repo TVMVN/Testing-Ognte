@@ -224,8 +224,8 @@ export default function LoginPage() {
           className="inline-flex gap-0 items-center justify-center w-full font-sans font-semibold tracking-wide border-green-400 text-white bg-transparent rounded-lg h-[60px] hover:bg-green-50 transition-all duration-200"
           disabled
         >
-          <div className="bg-[#678c708a] w-full md:px-8 lg:px-8 xl:px-8 px-5 py-3 rounded-l-lg">
-            <span className="text-sm md:text:md lg:text-md xl:text-md font-medium">Login with</span>
+          <div className="bg-[#678c708a] w-full md:px-8 lg:px-8 xl:px-8 px-5 py-0 rounded-l-lg">
+            <span className="text-xs md:text:md lg:text-md xl:text-md font-medium">Login with</span>
           </div>
           <div className="inline-flex gap-2 items-center justify-center px-8 py-1 font-sans font-semibold tracking-wide border-green-400 text-white bg-[#7d76765d] h-[48px] rounded-r-lg">
             <FcGoogle className="w-[30px] h-[30px] cursor-pointer mr-2 opacity-50" />

@@ -547,7 +547,7 @@ export default function UniqueRegister() {
               className="flex flex-col sm:flex-row items-center justify-center gap-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg w-full transition-all duration-200 shadow-md hover:shadow-lg"
             >
               <span className="text-base sm:text-lg">Register with Socials</span>
-              <div className="flex gap-4  border-l-2 border-green-100 pl-3 text-xl">
+              <div className="flex gap-4  lg:border-l-2 md:border-l-2 xl:border-l-2 border-green-100 pl-3 text-xl">
               {/* <div className="inline-flex gap-2 items-center justify-center  px-8 py-1 font-sans font-semibold tracking-wide border-green-400 text-white bg-[#7d76765d] h-[48px] rounded-r-lg "> */}
             <FcGoogle className="w-[30px] h-[30px] cursor-pointer mr-2" />
             <FaGithub className="w-[30px] h-[30px] cursor-pointer mr-2" />
@@ -585,8 +585,8 @@ export default function UniqueRegister() {
 
           <div className="text-center pt-4 border-t border-green-100">
             <Link href="/login">
-              <p className="text-green-600 hover:text-green-700 font-medium transition-colors duration-200">
-                Already have an account? Login here
+              <p className="text-black hover:text-green-700 font-medium transition-colors duration-200">
+                Already have an account? <span className=" text-green-600">Login here</span>
               </p>
             </Link>
           </div>

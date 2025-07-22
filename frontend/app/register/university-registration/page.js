@@ -333,7 +333,7 @@ export default function UniversityRegistration() {
           <section>
             <h3 className="text-lg sm:text-xl mb-4 text-green-700 font-semibold">Courses Offered</h3>
             <div className="flex flex-wrap gap-3">
-              {["Engineering", "Business", "Medicine", "Law", "Arts", "Science", "Technology"].map((course) => (
+              {["Engineering", "Business", "Medicine", "Law", "Arts", "Science", "Technology", "Others"].map((course) => (
                 <div
                   key={course}
                   onClick={() => handleCheckboxChange(course)}
@@ -413,7 +413,7 @@ export default function UniversityRegistration() {
               className="flex flex-col sm:flex-row items-center justify-center gap-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg w-full transition-all duration-200 shadow-md hover:shadow-lg"
             >
               <span className="text-base sm:text-lg">Register with Socials</span>
-              <div className="flex gap-4 border-l-2 border-green-100 pl-3 text-xl">
+              <div className="flex gap-4 lg:border-l-2 md:border-l-2 xl:border-l-2 border-green-100 pl-3 text-xl">
                 <FcGoogle className="w-[30px] h-[30px] cursor-pointer mr-2" />
                 <FaGithub className="w-[30px] h-[30px] cursor-pointer mr-2" />
                 <FaFacebook className="bg-blue-500 cursor-pointer rounded-full text-black w-[30px] h-[30px] mr-2" />
@@ -441,8 +441,8 @@ export default function UniversityRegistration() {
 
           <div className="text-center pt-4 border-t border-green-100">
             <Link href="/login">
-              <p className="text-green-600 hover:text-green-700 font-medium transition-colors duration-200">
-                Already have an account? Login here
+              <p className="text-black hover:text-green-700 font-medium transition-colors duration-200">
+                Already have an account? <span className=" text-green-600">Login here</span>
               </p>
             </Link>
           </div>
