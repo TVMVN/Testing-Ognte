@@ -2,7 +2,7 @@ from django.db import models
 
 class CandidateJobMatch(models.Model):
     candidate = models.ForeignKey('candidates.Candidate', on_delete=models.CASCADE)
-    job_post = models.ForeignKey('jobs.JobPost', on_delete=models.CASCADE)
+    job_post = models.ForeignKey('applications.JobPost', on_delete=models.CASCADE)
 
     focus_area_match = models.BooleanField(default=False)
     skill_match_score = models.FloatField(default=0.0)  # Between 0.0 and 1.0
