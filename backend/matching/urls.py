@@ -1,7 +1,12 @@
 from django.urls import path
-from .views import TopCandidatesForJobView, AppliedJobsForCandidateView
+from .views import (
+    RunMatchingEngine,
+    CandidateMatchListView,
+    RecruiterTopMatchesView,
+)
 
 urlpatterns = [
-    path('jobs/<int:job_id>/top-candidates/', TopCandidatesForJobView.as_view(), name='top-candidates'),
-    path('candidates/applied-jobs/', AppliedJobsForCandidateView.as_view(), name='applied-jobs'),
+    path('match/run/', RunMatchingEngine.as_view(), name='run-matching-engine'),
+    path('match/candidate/', CandidateMatchListView.as_view(), name='candidate-matches'),
+    path('match/recruiter/', RecruiterTopMatchesView.as_view(), name='recruiter-top-matches'),
 ]

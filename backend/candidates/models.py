@@ -19,8 +19,6 @@ class Candidate(models.Model):
     skills = models.JSONField(default=list, blank=True)
     location = models.CharField(max_length=100)
     duration_of_internship = models.IntegerField()
-    internship_focus_area = models.CharField(max_length=100)
-
     
     def __str__(self):
         return f"{self.user.username} - Candidate"

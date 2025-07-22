@@ -16,6 +16,8 @@ from django.utils.timezone import now
 from datetime import timedelta
 from django.db.models import Count
 from django.db.models.functions import TruncDate
+from matching.models import CandidateJobMatch
+from matching.serializers import CandidateJobMatchSerializer
 
 from .models import Recruiter
 from .permissions import IsRecruiterUser
@@ -112,28 +114,25 @@ class RecruiterDashboardView(APIView):
             'weekly_applications': weekly_applications
         })
 
+from matching.utils import match_jobpost_to_candidates
 
-# mentors/views.py
+# recruiters/views/dashboard.py
 
-# class MentorApplyView(generics.CreateAPIView):
-#     serializer_class = MentorApplicationSerializer
-#     permission_classes = [IsAuthenticated]  # Assume user is a mentor
+class RecruiterDashboardMatchesView(APIView):
+    permission_classes = [IsAuthenticated, IsRecruiterUser]
 
-#     def perform_create(self, serializer):
-#         application = get_object_or_404(Application, pk=self.kwargs['application_id'])
-#         serializer.save(mentor=self.request.user, application=application)
+    def get(self, request):
+        recruiter = request.user.recruiter
+        job_posts = JobPost.objects.filter(recruiter=recruiter)
+        
+        results = []
+        for job in job_posts:
+            matches = CandidateJobMatch.objects.filter(job_post=job).order_by('-total_score')[:10]
+            serialized_matches = CandidateJobMatchSerializer(matches, many=True).data
+            results.append({
+                'job_post': job.title,
+                'job_id': job.id,
+                'top_candidates': serialized_matches
+            })
 
-
-# class MentorDecisionView(generics.UpdateAPIView):
-#     queryset = MentorApplication.objects.all()
-#     serializer_class = MentorApplicationSerializer
-#     permission_classes = [IsAuthenticated, IsRecruiterUser]
-
-#     def update(self, request, *args, **kwargs):
-#         mentor_app = self.get_object()
-#         decision = request.data.get('status')
-#         if decision not in ['accepted', 'rejected']:
-#             return Response({'detail': 'Invalid status.'}, status=400)
-#         mentor_app.status = decision
-#         mentor_app.save()
-#         return Response({'detail': f'Mentor application {decision}.'})
+        return Response({'recruiter_matches': results})

@@ -1,6 +1,7 @@
 from django.urls import path
 from .auth_views import RecruiterProfileView, RecruiterListView
 from .views import JobPostViewSet, EmployerAnalyticsViewSet, RecruiterDashboardView
+from .views import RecruiterDashboardMatchesView
 
 urlpatterns = [
     #Authentication Routes
@@ -12,4 +13,9 @@ urlpatterns = [
     path('jobs/<int:pk>/', JobPostViewSet.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name='jobpost-detail'),
     path('dashboard/', RecruiterDashboardView.as_view(), name='recruiter-dashboard'),
     path('analytics/', EmployerAnalyticsViewSet.as_view({'get': 'list'}), name='employer-analytics'),
+
+    path('dashboard/matches/', RecruiterDashboardMatchesView.as_view(), name='recruiter-dashboard-matches'),
 ]
+
+
+

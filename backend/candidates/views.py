@@ -11,6 +11,20 @@ from .utils import create_notification
 from rest_framework.exceptions import ValidationError
 from rest_framework import status, permissions
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .permissions import IsCandidateUser
+from applications.models import JobPost
+from matching.models import CandidateJobMatch
+from matching.serializers import CandidateJobMatchSerializer
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from candidates.permissions import IsCandidateUser
+from applications.models import Application
+from matching.models import CandidateJobMatch
+from candidates.models import Candidate
 
 class MyApplicationsView(generics.ListAPIView):
     serializer_class = MyApplicationSerializer
@@ -18,6 +32,8 @@ class MyApplicationsView(generics.ListAPIView):
 
     def get_queryset(self):
         return Application.objects.filter(candidate=self.request.user.candidate_profile.first())
+
+
 
 class ApplyToJobView(APIView):
     permission_classes = [IsAuthenticated, IsCandidateUser]
@@ -45,3 +61,40 @@ class ApplyToJobView(APIView):
         else:
             print("❌ Serializer errors:", serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class CandidateDashboardMatchesView(APIView):
+    permission_classes = [IsAuthenticated, IsCandidateUser]
+
+    def get(self, request):
+        candidate = request.user.candidate_profile.first()
+        if not candidate:
+            return Response({'error': 'Candidate profile not found.'}, status=404)
+
+        matches = CandidateJobMatch.objects.filter(candidate=candidate).order_by('-total_score')[:10]
+        serializer = CandidateJobMatchSerializer(matches, many=True)
+        return Response({'top_matches': serializer.data})
+
+
+class CandidateStatsView(APIView):
+    permission_classes = [IsAuthenticated, IsCandidateUser]
+
+    def get(self, request):
+        candidate = request.user.candidate_profile.first()
+        applications = Application.objects.filter(candidate=candidate)
+        matches = CandidateJobMatch.objects.filter(candidate=candidate)
+
+        return Response({
+            "total_applications": applications.count(),
+            "accepted_applications": applications.filter(status="accepted").count(),
+            "rejected_applications": applications.filter(status="rejected").count(),
+            "total_matches": matches.count(),
+            "top_matched_jobs": [
+                {
+                    "job_title": match.job_post.title,
+                    "score": match.total_score
+                }
+                for match in matches.order_by("-total_score")[:5]
+            ]
+        })
