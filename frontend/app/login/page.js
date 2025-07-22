@@ -17,6 +17,7 @@ import { FaGithub, FaFacebook, FaEye, FaEyeSlash } from "react-icons/fa";
 export default function LoginPage() {
   const router = useRouter();
   const users = ["Recruiter", "Candidate", "University"];
+    const BACKEND_URL = "http://localhost:8000/"
 
   const [userType, setUserType] = useState("");
   const [formError, setFormError] = useState("");
@@ -76,7 +77,7 @@ export default function LoginPage() {
 
       console.log("Sending login request with payload:", { ...payload, password: "[HIDDEN]" });
 
-      const res = await fetch("http://127.0.0.1:8000/api/auth/login/", {
+      const res = await fetch(`${BACKEND_URL}/api/auth/login/`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -224,8 +225,8 @@ export default function LoginPage() {
           className="inline-flex gap-0 items-center justify-center w-full font-sans font-semibold tracking-wide border-green-400 text-white bg-transparent rounded-lg h-[60px] hover:bg-green-50 transition-all duration-200"
           disabled
         >
-          <div className="bg-[#678c708a] w-full md:px-8 lg:px-8 xl:px-8 px-5 py-0 rounded-l-lg">
-            <span className="text-xs md:text:md lg:text-md xl:text-md font-medium">Login with</span>
+          <div className="bg-[#678c708a] w-full md:px-8 lg:px-8 xl:px-8 px-5 py-0 md:py-3 xl:py-3 lg:py-3 rounded-l-lg">
+            <span className="text-xs md:text-md lg:text-md xl:text-md font-medium">Login with</span>
           </div>
           <div className="inline-flex gap-2 items-center justify-center px-8 py-1 font-sans font-semibold tracking-wide border-green-400 text-white bg-[#7d76765d] h-[48px] rounded-r-lg">
             <FcGoogle className="w-[30px] h-[30px] cursor-pointer mr-2 opacity-50" />
@@ -310,7 +311,7 @@ export default function LoginPage() {
             <DialogTrigger className="ml-2 text-green-600 font-medium hover:text-green-700 hover:underline cursor-pointer transition-colors duration-200">
               Register
             </DialogTrigger>
-            <DialogContent className="max-w-sm sm:max-w-md mx-4">
+            <DialogContent className="max-w-sm  bg-white sm:max-w-md mx-4">
               <DialogHeader className="text-center">
                 <DialogTitle className="text-xl sm:text-2xl text-green-800 mb-2">Sign Up</DialogTitle>
                 <DialogDescription className="text-gray-600">

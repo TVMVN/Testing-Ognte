@@ -35,6 +35,7 @@ const StudentDashboard = () => {
   const [firstName, setFirstName] = useState(null);
   const [title, setTitle] = useState(null);
   const [jobs, setJobs] = useState([]);
+  const BACKEND_URL = "http://localhost:8000/";
 
   const [resumeScore, setResumeScore] = useState(0);
   const [userSkills, setUserSkills] = useState({
@@ -81,7 +82,7 @@ const StudentDashboard = () => {
     }
 
     try {
-      const res = await fetch('http://localhost:8000/api/auth/refresh/', {
+      const res = await fetch(`${BACKEND_URL}/api/auth/refresh/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -124,7 +125,7 @@ const StudentDashboard = () => {
     
     // Notify server in background (don't wait for response)
     if (token) {
-      fetch('http://localhost:8000/api/auth/logout/', {
+      fetch(`${BACKEND_URL}/api/auth/logout/`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -221,7 +222,7 @@ const StudentDashboard = () => {
           return;
         }
 
-        const res = await makeAuthenticatedRequest("http://localhost:8000/api/candidates/profile/", {
+        const res = await makeAuthenticatedRequest(`${BACKEND_URL}/api/candidates/profile/`, {
           method: 'GET',
         });
 
@@ -263,7 +264,7 @@ const StudentDashboard = () => {
   }, [title]);
 
   const fetchYouTubeVideos = async (searchQuery) => {
-    const API_KEY = "AIzaSyDlLVjpyUnrTI9NCqFB9IyU5JTPXRTU6ao";
+    const API_KEY = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
     const maxResults = 6;
     try {
       const response = await fetch(
@@ -412,9 +413,9 @@ const StudentDashboard = () => {
                         <Link href={`/dashboard/${username}/safety-tips`}>
                           <li className="cursor-pointer">Safety tips</li>
                         </Link>
-                        <Link href={`/dashboard/${username}/mentorship`}>
+                        {/* <Link href={`/dashboard/${username}/mentorship`}>
                           <li className="cursor-pointer">Mentorship</li>
-                        </Link>
+                        </Link> */}
                         <li 
                           onClick={handleLogoutWithConfirmation} 
                           className="  text-black dark:text-white hover:text-red-600 cursor-pointer"

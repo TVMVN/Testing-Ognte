@@ -8,6 +8,7 @@ const ForgotPasswordPage = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const BACKEND_URL = "http://localhost:8000/";
 
   const handleSubmit = async (e) => {
     e.preventDefault();

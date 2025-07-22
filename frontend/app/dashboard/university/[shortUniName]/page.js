@@ -64,6 +64,7 @@ const StudentDashboard = () => {
   const [pieChartData, setPieChartData] = useState([]);
   const [lineChartData, setLineChartData] = useState([]);
   const [totalVisitors, setTotalVisitors] = useState(0);
+  const BACKEND_URL = 'http://localhost:8000'; 
   const { shortUniName } = useParams();
   const [profilePic, setProfilePic] = useState(null);
   const [email, setEmail] = useState(null);
@@ -125,7 +126,7 @@ const StudentDashboard = () => {
     
     // Notify server in background (don't wait for response)
     if (token) {
-      fetch('http://localhost:8000/api/auth/logout/', {
+      fetch(`${BACKEND_URL}/api/auth/logout/`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -158,8 +159,8 @@ const StudentDashboard = () => {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
-      const res = await fetch('http://localhost:8000/api/auth/refresh/', {
+
+      const res = await fetch(`${BACKEND_URL}/api/auth/refresh/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh }),
@@ -259,7 +260,7 @@ const StudentDashboard = () => {
         
         if (token) {
           response = await makeAuthenticatedRequest(
-            "http://localhost:8000/api/universities/profile/", 
+            `${BACKEND_URL}/api/universities/profile/`, 
             { method: 'GET' }
           );
         }
@@ -267,7 +268,7 @@ const StudentDashboard = () => {
         // If authenticated request fails or no token, try public endpoint
         if (!response || !response.ok) {
           console.log('Trying public endpoint...');
-          response = await fetch("http://localhost:8000/api/universities/profile");
+          response = await fetch(`${BACKEND_URL}/api/universities/profile`);
         }
         
         if (!response.ok) {

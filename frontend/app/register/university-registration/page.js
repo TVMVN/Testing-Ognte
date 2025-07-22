@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 
 export default function UniversityRegistration() {
   const router = useRouter();
+  const BACKEND_URL = "http://localhost:8000/"
 
   const [data, setData] = useState({
     username: "",
@@ -102,7 +103,7 @@ export default function UniversityRegistration() {
       }
 
       // Use the correct API endpoint
-      const res = await fetch("http://127.0.0.1:8000/api/auth/register/university/", {
+      const res = await fetch(`${BACKEND_URL}/api/auth/register/university/`, {
         method: "POST",
         body: formData,
       });
@@ -166,7 +167,7 @@ export default function UniversityRegistration() {
         logo: null // Handle logo separately if needed
       };
 
-      const res = await fetch("http://127.0.0.1:8000/api/auth/register/university/", {
+      const res = await fetch(`${BACKEND_URL}/api/auth/register/university/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

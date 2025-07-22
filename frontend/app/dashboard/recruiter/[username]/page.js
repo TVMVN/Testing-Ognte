@@ -165,6 +165,7 @@ export default function RecruiterDashboard() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+  const BACKEND_URL = "http://localhost:8000/"
 
   const currencyIcons = {
     '$': <DollarSign size={16} />,
@@ -257,7 +258,7 @@ export default function RecruiterDashboard() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-      const res = await fetch('http://localhost:8000/api/auth/refresh/', {
+      const res = await fetch(`${BACKEND_URL}/api/auth/refresh/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh }),
@@ -367,7 +368,7 @@ export default function RecruiterDashboard() {
     
     // Notify server in background (don't wait for response)
     if (token) {
-      fetch('http://localhost:8000/api/auth/logout/', {
+      fetch(`${BACKEND_URL}/api/auth/logout/`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -424,7 +425,7 @@ export default function RecruiterDashboard() {
       };
 
       const res = await makeAuthenticatedRequest(
-        "http://localhost:8000/api/recruiters/internships/", 
+        `${BACKEND_URL}/api/recruiters/internships/`, 
         {
           method: 'POST',
           body: JSON.stringify(internshipData),
@@ -498,7 +499,7 @@ export default function RecruiterDashboard() {
         }
 
         const res = await makeAuthenticatedRequest(
-          "http://localhost:8000/api/recruiters/profile/", 
+          `${BACKEND_URL}/api/recruiters/profile/`, 
           { method: 'GET' }
         );
 
@@ -616,7 +617,7 @@ export default function RecruiterDashboard() {
                   <Link href="/"><li className="cursor-pointer">Home</li></Link>
                   <Link href={`/dashboard/recruiter/${username}/profile`}><li className="cursor-pointer">Edit Profile</li></Link>
                   <Link href={`/dashboard/recruiter/${username}/applications`}><li className="cursor-pointer">Applications</li></Link>
-                  <Link href={`/dashboard/recruiter/${username}/mentorship`}><li className="cursor-pointer">Mentorship</li></Link>
+                  {/* <Link href={`/dashboard/recruiter/${username}/mentorship`}><li className="cursor-pointer">Mentorship</li></Link> */}
                   <Link href={`/dashboard/recruiter/${username}/settings`}><li className="cursor-pointer">Edit Preferences</li></Link>
                   <Link href={`/dashboard/recruiter/${username}/safety-tips`}><li className="cursor-pointer">Safety tips</li></Link>
                   <li 

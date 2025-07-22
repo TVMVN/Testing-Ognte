@@ -26,6 +26,8 @@ export default function RecruiterRegister() {
     agree: false,
   });
 
+  const BACKEND_URL = "http://localhost:8000/";
+
   const [touched, setTouched] = useState({
     password: false,
     confirm_password: false,
@@ -85,7 +87,7 @@ export default function RecruiterRegister() {
     });
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/auth/register/recruiter/', {
+      const response = await fetch(`${BACKEND_URL}/api/auth/register/recruiter/`, {
         method: 'POST',
         body: formData,
       });

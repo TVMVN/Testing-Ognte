@@ -66,7 +66,7 @@ const NotificationPage = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
-      const res = await fetch('http://localhost:8000/api/auth/refresh/', {
+      const res = await fetch(`${BACKEND_URL}/api/auth/refresh/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh }),
@@ -155,7 +155,7 @@ const NotificationPage = () => {
     
     try {
       const response = await makeAuthenticatedRequest(
-        "http://127.0.0.1:8000/api/auth/notifications/",
+        `${BACKEND_URL}/api/auth/notifications/`,
         { method: 'GET' }
       );
       
@@ -230,7 +230,7 @@ const NotificationPage = () => {
   // Send bulk update to server using the correct endpoint
   try {
     const response = await makeAuthenticatedRequest(
-      "http://127.0.0.1:8000/api/auth/notifications/read-all/", // Changed from /read/ to /read-all/
+      `${BACKEND_URL}/api/auth/notifications/read-all/`, 
       {
         method: 'POST',
         body: JSON.stringify({ read: newReadStatus })

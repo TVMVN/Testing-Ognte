@@ -34,6 +34,7 @@ export default function UniqueRegister() {
     password: false,
     confirmPassword: false,
   });
+  const BACKEND_URL = "http://localhost:8000/"
 
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -216,7 +217,7 @@ export default function UniqueRegister() {
         console.log(key, value);
       }
 
-      const response = await fetch('http://127.0.0.1:8000/api/auth/register/candidate/', {
+      const response = await fetch(`${BACKEND_URL}/api/auth/register/candidate/`, {
         method: 'POST',
         body: formData,
         // Don't set Content-Type header - let browser set it with boundary
@@ -281,7 +282,7 @@ export default function UniqueRegister() {
   useEffect(() => {
     const fetchUniversities = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/universities");
+        const res = await fetch(`${BACKEND_URL}/api/universities`);
         if (!res.ok) throw new Error("Failed to fetch universities");
         const data = await res.json();
         setUniversities(data);

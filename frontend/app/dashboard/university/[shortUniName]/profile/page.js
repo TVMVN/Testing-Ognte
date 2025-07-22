@@ -13,6 +13,7 @@ const DEFAULT_IMAGE = 'https://i.pinimg.com/736x/8a/f7/b5/8af7b51236d65265ed84dc
 const Profile = () => {
   const params = useParams();
   const shortUniName = params.shortUniName;
+  const BACKEND_URL = 'http://localhost:8000'; 
   
   console.log('Params:', params);
   console.log('shortUniName:', shortUniName);
@@ -61,7 +62,7 @@ const Profile = () => {
     }
 
     try {
-      const res = await fetch('http://localhost:8000/api/auth/refresh/', {
+      const res = await fetch(`${BACKEND_URL}/api/auth/refresh/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh }),
@@ -175,7 +176,7 @@ const Profile = () => {
       setLoading(true);
       try {
         // Note: Adjust the API endpoint if needed to include shortUniName for fetching the right profile
-        const response = await makeAuthenticatedRequest(`http://localhost:8000/api/universities/profile/`, {
+        const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/universities/profile/`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           cache: 'no-cache',
@@ -315,7 +316,7 @@ const Profile = () => {
     if (profileFile) fd.append('logo', profileFile);
 
     try {
-      const response = await makeAuthenticatedRequest(`http://localhost:8000/api/universities/profile/`, {
+      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/universities/profile/`, {
         method: 'PATCH',
         body: fd,
       });
