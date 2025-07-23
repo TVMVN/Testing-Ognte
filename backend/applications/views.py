@@ -2,21 +2,22 @@ from rest_framework import viewsets, permissions, filters as drf_filters
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from django.db.models import Count
 from django.utils.timezone import now, timedelta
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import JobPost, Application
+from django.db.models.functions import TruncDate
+
+from .models import JobPost, Application, Salary
 from .serializers import (
     JobSerializer, JobPostingSerializer, JobPostingCreateSerializer,
     ApplicationSerializer, ApplicationCreateSerializer,
-    ApplicationDetailSerializer, ApplicationStatusUpdateSerializer
+    ApplicationDetailSerializer, ApplicationStatusUpdateSerializer,
+    SalarySerializer
 )
 from .filtering import JobPostFilter, ApplicationFilter
-from recruiters.models import Recruiter
-from .models import Salary
-from .serializers import SalarySerializer
 from .permissions import IsRecruiter
-from rest_framework.exceptions import PermissionDenied
+from recruiters.models import Recruiter
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -33,23 +34,23 @@ class JobPostViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'title']
     pagination_class = StandardResultsSetPagination
 
+    def get_queryset(self):
+        user = self.request.user
+        if hasattr(user, 'recruiter'):
+            return JobPost.objects.filter(recruiter=user.recruiter)
+        return JobPost.objects.none()
+
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
             return JobPostingCreateSerializer
         return JobPostingSerializer
 
     def perform_create(self, serializer):
-        from recruiters.models import Recruiter  # ✅ make sure this import is there
-
-def perform_create(self, serializer):
-    user = self.request.user
-
-    if user.role != 'recruiter':
-        raise PermissionDenied("Only recruiters can post jobs.")
-    recruiter, created = Recruiter.objects.get_or_create(user=user)
-    serializer.save(recruiter=recruiter)
-
-       
+        user = self.request.user
+        if user.role != 'recruiter':
+            raise PermissionDenied("Only recruiters can post jobs.")
+        recruiter, _ = Recruiter.objects.get_or_create(user=user)
+        serializer.save(recruiter=recruiter)
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def top_jobs(self, request):
@@ -60,7 +61,7 @@ def perform_create(self, serializer):
                        .order_by('-application_count')[:5] \
                        .values('title', 'application_count')
             return Response(data)
-        return Response(status=403)
+        return Response({"error": "Unauthorized"}, status=403)
 
     @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def applications(self, request, pk=None):
@@ -68,7 +69,6 @@ def perform_create(self, serializer):
         applications = job.applications.all()
         serializer = ApplicationDetailSerializer(applications, many=True)
         return Response(serializer.data)
-
 
 class ApplicationViewSet(viewsets.ModelViewSet):
     queryset = Application.objects.all()
@@ -87,17 +87,18 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         return ApplicationDetailSerializer
 
     def perform_create(self, serializer):
-        candidate = self.request.user.candidate_profile.first()  # ✅ FIXED
+        user = self.request.user
+        candidate = getattr(user, 'candidate', None)
+        if not candidate:
+            raise PermissionDenied("Only candidates can apply.")
         serializer.save(candidate=candidate)
 
     def get_queryset(self):
         user = self.request.user
 
-        # Candidate view: only their own applications
-        if user.role == 'candidate' and hasattr(user, 'candidate_profile'):
-            return Application.objects.filter(candidate=user.candidate_profile.first())
+        if user.role == 'candidate' and hasattr(user, 'candidate'):
+            return Application.objects.filter(candidate=user.candidate)
 
-        # Recruiter view: only apps for their own jobs
         elif user.role == 'recruiter' and hasattr(user, 'recruiter'):
             return Application.objects.filter(job_post__recruiter=user.recruiter)
 
@@ -108,10 +109,10 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         user = request.user
         if user.role == 'recruiter' and hasattr(user, 'recruiter'):
             qs = Application.objects.filter(job_post__recruiter=user.recruiter)
-        elif user.role == 'candidate' and user.candidate_profile.exists():
-            qs = Application.objects.filter(candidate=user.candidate_profile.first())
+        elif user.role == 'candidate' and hasattr(user, 'candidate'):
+            qs = Application.objects.filter(candidate=user.candidate)
         else:
-            return Response(status=403)
+            return Response({"error": "Unauthorized"}, status=403)
 
         summary = qs.values('status').annotate(count=Count('status'))
         return Response({item['status']: item['count'] for item in summary})
@@ -124,12 +125,15 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
         if user.role == 'recruiter' and hasattr(user, 'recruiter'):
             qs = Application.objects.filter(job_post__recruiter=user.recruiter, applied_at__date__gte=start_date)
-        elif user.role == 'candidate' and user.candidate_profile.exists():
-            qs = Application.objects.filter(candidate=user.candidate_profile.first(), applied_at__date__gte=start_date)
+        elif user.role == 'candidate' and hasattr(user, 'candidate'):
+            qs = Application.objects.filter(candidate=user.candidate, applied_at__date__gte=start_date)
         else:
-            return Response(status=403)
+            return Response({"error": "Unauthorized"}, status=403)
 
-        trend_data = qs.extra({'day': "date(applied_at)"}).values('day').annotate(count=Count('id')).order_by('day')
+        trend_data = qs.annotate(day=TruncDate('applied_at')) \
+                       .values('day') \
+                       .annotate(count=Count('id')) \
+                       .order_by('day')
         return Response(trend_data)
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
@@ -146,10 +150,10 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         base_filter = {}
         if user.role == 'recruiter' and hasattr(user, 'recruiter'):
             base_filter['job_post__recruiter'] = user.recruiter
-        elif user.role == 'candidate' and user.candidate_profile.exists():
-            base_filter['candidate'] = user.candidate_profile.first()
+        elif user.role == 'candidate' and hasattr(user, 'candidate'):
+            base_filter['candidate'] = user.candidate
         else:
-            return Response(status=403)
+            return Response({"error": "Unauthorized"}, status=403)
 
         r1_count = Application.objects.filter(
             **base_filter,
@@ -167,7 +171,6 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             "range1": {"start": range1_start, "end": range1_end, "count": r1_count},
             "range2": {"start": range2_start, "end": range2_end, "count": r2_count}
         })
-
 
 class SalaryViewSet(viewsets.ModelViewSet):
     queryset = Salary.objects.all()
