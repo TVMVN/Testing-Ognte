@@ -1,192 +1,125 @@
 from rest_framework import serializers
-from django.utils.timezone import now
-from datetime import timedelta
-from django.contrib.auth import get_user_model
-from .models import Salary, JobPost, Application
-from recruiters.models import Recruiter
-from candidates.models import Candidate
+from .models import JobPost, Application, Salary
+from django.core.exceptions import PermissionDenied
 
-User = get_user_model()
 
+# ---------------------------
+# Salary Serializer
+# ---------------------------
 class SalarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Salary
-        fields = ['amount', 'currency', 'status', 'payment_frequency']
+        fields = ['id', 'amount', 'currency', 'status']
 
-class JobSerializer(serializers.ModelSerializer):
-    applications = serializers.SerializerMethodField()
-    is_expired = serializers.SerializerMethodField()
-    salary = SalarySerializer()
+
+# ---------------------------
+# Nested Job Serializer (for display inside applications)
+# ---------------------------
+class JobNestedSerializer(serializers.ModelSerializer):
+    recruiter = serializers.SerializerMethodField()
+    salary = SalarySerializer(read_only=True)
 
     class Meta:
         model = JobPost
         fields = [
-            'id', 'title', 'description', 'created_at', 'application_deadline', 'is_remote'
-            'is_active', 'is_expired', 'applications', 'location', 'skills', 'salary'
+            'id', 'title', 'location', 'type', 'description',
+            'required_skills', 'duration_of_internship',
+            'number_of_slots', 'salary', 'recruiter', 'created_at'
         ]
 
-    def get_is_expired(self, obj):
-        return obj.has_expired()
+    def get_recruiter(self, obj):
+        return str(obj.recruiter.user.get_full_name()) if obj.recruiter else None
 
-    def get_applications(self, obj):
-        one_week_ago = now() - timedelta(days=7)
-        recent_apps = obj.applications.filter(applied_at__gte=one_week_ago)
-        return [
-            {
-                "applicant": app.candidate.user.get_full_name() or app.candidate.user.username,
-                "applied_at": app.applied_at.isoformat(),
-                "status": app.status,
-            }
-            for app in recent_apps
-        ]
 
-    def create(self, validated_data):
-        salary_data = validated_data.pop('salary')
-        salary = Salary.objects.create(**salary_data)
-        job_post = JobPost.objects.create(salary=salary, **validated_data)
-        return job_post
+# ---------------------------
+# Job Serializer (GET)
+# ---------------------------
+class JobSerializer(serializers.ModelSerializer):
+    recruiter = serializers.SerializerMethodField()
+    salary = SalarySerializer(read_only=True)
 
-    def update(self, instance, validated_data):
-        salary_data = validated_data.pop('salary', None)
-        if salary_data:
-            if instance.salary:
-                for attr, value in salary_data.items():
-                    setattr(instance.salary, attr, value)
-                instance.salary.save()
-            else:
-                salary = Salary.objects.create(**salary_data)
-                instance.salary = salary
+    class Meta:
+        model = JobPost
+        fields = '__all__'
 
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        return instance
+    def get_recruiter(self, obj):
+        return str(obj.recruiter.user.get_full_name()) if obj.recruiter else None
 
-class JobNestedSerializer(serializers.ModelSerializer):
+
+class JobPostingSerializer(serializers.ModelSerializer):
+    recruiter = serializers.SerializerMethodField()
     salary = SalarySerializer()
 
     class Meta:
         model = JobPost
-        fields = ['id', 'title', 'description', 'created_at', 'location', 'skills', 'salary']
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name']
-
-class RecruiterSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-
-    class Meta:
-        model = Recruiter
         fields = '__all__'
-        read_only_fields = ['user', 'created_at']
 
-class JobPostingSerializer(serializers.ModelSerializer):
-    recruiter = RecruiterSerializer(read_only=True)
-    applications_count = serializers.SerializerMethodField()
-    match_score = serializers.FloatField(read_only=True)
-    
-    class Meta:
-        model = JobPost
-        fields = '__all__'
-        read_only_fields = ['recruiter', 'created_at', 'updated_at']
+    def get_recruiter(self, obj):
+        recruiter = obj.recruiter
+        if recruiter:
+            return {
+                "company_name": recruiter.company_name,
+                "email": recruiter.user.email,
+                "phone": recruiter.phone,
+            }
+        return None
 
-    def get_applications_count(self, obj):
-        return obj.applications.count()
-
+# ---------------------------
+# Job Creation Serializer (POST)
+# ---------------------------
 class JobPostingCreateSerializer(serializers.ModelSerializer):
-    # Accept nested salary data
-    salary_amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
-    salary_currency = serializers.ChoiceField(choices=Salary.CURRENCY_CHOICES, required=False, allow_null=True)
-    salary_status = serializers.ChoiceField(choices=Salary.STATUS_CHOICES, required=False, allow_null=True)
-    salary_frequency = serializers.ChoiceField(choices=Salary.FREQUENCY_CHOICES, required=False, allow_null=True)
-    
+    salary = serializers.PrimaryKeyRelatedField(queryset=Salary.objects.all())
+
     class Meta:
         model = JobPost
         exclude = ['recruiter', 'created_at', 'updated_at']
-        
+
     def create(self, validated_data):
-        # Extract salary data
-        salary_amount = validated_data.pop('salary_amount', None)
-        salary_currency = validated_data.pop('salary_currency', None)
-        salary_status = validated_data.pop('salary_status', None)
-        salary_frequency = validated_data.pop('salary_frequency', None)
-        
-        # Create salary object if salary data is provided
-        salary = None
-        if salary_amount is not None:
-            salary = Salary.objects.create(
-                amount=salary_amount,
-                currency=salary_currency or 'naira',
-                status=salary_status or 'unpaid',
-                payment_frequency=salary_frequency or 'monthly'
-            )
-        
-        # Create job post
-        job_post = JobPost.objects.create(salary=salary, **validated_data)
+        user = self.context['request'].user
+
+        if user.role != 'recruiter' or not hasattr(user, 'recruiter_profile'):
+            raise PermissionDenied("Only recruiters can post jobs.")
+
+        validated_data.pop('recruiter', None)
+        recruiter = user.recruiter_profile
+        job_post = JobPost.objects.create(recruiter=recruiter, **validated_data)
+
+
         return job_post
 
-class CandidateSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+
+# ---------------------------
+# Application Serializer (GET)
+# ---------------------------
+class ApplicationSerializer(serializers.ModelSerializer):
+    candidate = serializers.SerializerMethodField()
+    job_post = JobNestedSerializer()
 
     class Meta:
-        model = Candidate
-        fields = '__all__'
-        read_only_fields = ['user', 'created_at']
+        model = Application
+        fields = [
+            'id', 'candidate', 'job_post',
+            'resume', 'cover_letter',
+            'applied_at', 'status'
+        ]
 
+    def get_candidate(self, obj):
+        return str(obj.candidate.user.get_full_name()) if obj.candidate else None
+
+
+# ---------------------------
+# Application Creation Serializer (POST)
+# ---------------------------
 class ApplicationCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Application
-        fields = ['resume', 'cover_letter']  # add other fields if needed
-
-    def validate(self, data):
-        candidate = self.context.get("candidate")
-        job_post = self.context.get("job_post")
-
-        if not candidate or not job_post:
-            raise serializers.ValidationError("Applicant and job post must be provided.")
-
-        # Check for duplicate
-        existing = Application.objects.filter(
-            candidate=candidate,
-            job_post=job_post
-        ).exclude(status__in=["accepted", "rejected"]).first()
-
-        if existing:
-            raise serializers.ValidationError("Applicant already applied to this job.")
-
-        return data
-
+        exclude = ['candidate', 'applied_at', 'status']
 
     def create(self, validated_data):
-        request = self.context.get('request')
-        candidate = self.context.get("candidate")
-        job_post = self.context.get('job_post')
-        
-        # Safely inject both
-        validated_data['candidate'] = candidate
-        validated_data['job_post'] = job_post
+        user = self.context['request'].user
 
-        return Application.objects.create(**validated_data)
+        if user.role != 'candidate' or not hasattr(user, 'candidate_profile'):
+            raise PermissionDenied("Only candidates can apply for jobs.")
 
-
-
-class ApplicationDetailSerializer(serializers.ModelSerializer):
-    candidate = CandidateSerializer(read_only=True)
-    job_post = JobNestedSerializer(read_only=True)
-
-    class Meta:
-        model = Application
-        fields = ['id', 'job_post', 'candidate', 'applied_at', 'status']
-
-class ApplicationStatusUpdateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Application
-        fields = ['status']
-
-class ApplicationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Application
-        fields = ['id', 'candidate', 'job_post', 'resume', 'cover_letter', 'applied_at']
-        read_only_fields = ['candidate', 'applied_at']
+        candidate = user.candidate_profile
+        return Application.objects.create(candidate=candidate, **validated_data)

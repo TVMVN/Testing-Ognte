@@ -3,7 +3,7 @@ from users.models import User
 
 
 class Candidate(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='candidate_profile')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='candidate_profile')
     professional_title = models.CharField(max_length=100)
     university = models.ForeignKey('universities.University', null=True, blank=True, on_delete=models.SET_NULL)
     degree = models.CharField(max_length=100)

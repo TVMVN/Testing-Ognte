@@ -2,7 +2,7 @@ from django.db import models
 from users.models import User
 
 class Recruiter(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recruiter_profile')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='recruiter_profile')
     company_name = models.CharField(max_length=100)
     recruiter_name = models.CharField(max_length=100)
     phone = models.CharField(max_length=20)

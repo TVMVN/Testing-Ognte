@@ -1,21 +1,19 @@
-from django.urls import path
+from django.urls import path, include
 from .auth_views import RecruiterProfileView, RecruiterListView
-from .views import JobPostViewSet, EmployerAnalyticsViewSet, RecruiterDashboardView
-from .views import RecruiterDashboardMatchesView
+from rest_framework.routers import DefaultRouter
+from recruiters.views import UnifiedJobPostViewSet, EmployerAnalyticsViewSet, RecruiterDashboardMatchesView
+
+router = DefaultRouter()
+router.register(r'jobs', UnifiedJobPostViewSet, basename='recruiter-jobs')
+router.register(r'analytics', EmployerAnalyticsViewSet, basename='employer-analytics')
 
 urlpatterns = [
-    #Authentication Routes
+    path('', include(router.urls)),
+
+    # Authentication
     path('profile/', RecruiterProfileView.as_view(), name='recruiter-profile'),
-    path('', RecruiterListView.as_view(), name='recruiter-list'),
+    path('list/', RecruiterListView.as_view(), name='recruiter-list'),
 
-    #Application Routes
-    path('jobs/', JobPostViewSet.as_view({'get': 'list', 'post': 'create'}), name='jobpost-list-create'),
-    path('jobs/<int:pk>/', JobPostViewSet.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name='jobpost-detail'),
-    path('dashboard/', RecruiterDashboardView.as_view(), name='recruiter-dashboard'),
-    path('analytics/', EmployerAnalyticsViewSet.as_view({'get': 'list'}), name='employer-analytics'),
-
-    path('dashboard/matches/', RecruiterDashboardMatchesView.as_view(), name='recruiter-dashboard-matches'),
+    # Dashboard
+    path('matches/', RecruiterDashboardMatchesView.as_view(), name='recruiter-matches'),
 ]
-
-
-
