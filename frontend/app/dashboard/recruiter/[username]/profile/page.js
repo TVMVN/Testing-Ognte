@@ -20,7 +20,7 @@ const Profile = () => {
   const [originalData, setOriginalData] = useState(null);
   const [profileImage, setProfileImage] = useState(DEFAULT_IMAGE);
   const [profileFile, setProfileFile] = useState(null);
-
+  const BACKEND_URL = 'http://localhost:8000/';
   const [editValues, setEditValues] = useState({
     email: '',
     firstName: '',
@@ -55,7 +55,7 @@ const Profile = () => {
     }
 
     try {
-      const res = await fetch('http://localhost:8000/api/auth/refresh/', {
+      const res = await fetch(`${BACKEND_URL}/api/auth/refresh/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh }),
@@ -130,7 +130,7 @@ const Profile = () => {
     
     const fetchProfile = async () => {
       try {
-        const response = await makeAuthenticatedRequest('http://localhost:8000/api/recruiters/profile/');
+        const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/recruiters/profile/`);
         
         if (response && response.ok) {
           const data = await response.json();
@@ -249,7 +249,7 @@ const Profile = () => {
     if (profileFile) fd.append('logo', profileFile);
 
     try {
-      const response = await makeAuthenticatedRequest('http://localhost:8000/api/recruiters/profile/', {
+      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/recruiters/profile/`, {
         method: 'PATCH',
         body: fd,
       });

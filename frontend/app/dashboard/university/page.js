@@ -43,10 +43,10 @@ const UniversityPage = () => {
   useEffect(() => {
     const fetchUniversityData = async () => {
       try {
-        const randomId = Math.floor(Math.random() * 20) + 1;
-        const response = await fetch(
-          `https://681906185a4b07b9d1d1b8a6.mockapi.io/api/testingTVMVN/university/${randomId}`
-        );
+        // const randomId = Math.floor(Math.random() * 20) + 1;
+        // const response = await fetch(
+        //   `https://681906185a4b07b9d1d1b8a6.mockapi.io/api/testingTVMVN/university/${randomId}`
+        // );
         if (response.ok) {
           const data = await response.json();
           setShortUniName(data.shortUniName); // Assuming the API returns a field called 'shortUniName'

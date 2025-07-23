@@ -8,6 +8,8 @@ import { toast } from "sonner"; // Optional: Assuming you're using react-toastif
 const YouTubeVideos = () => {
   const { username } = useParams();
   const router = useRouter();
+  const BACKEND_URL = "http://localhost:8000/"
+
 
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,7 @@ const YouTubeVideos = () => {
           return;
         }
 
-        const res = await fetch("http://localhost:8000/api/candidates/profile/", {
+        const res = await fetch(`${BACKEND_URL}/api/candidates/profile/`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",

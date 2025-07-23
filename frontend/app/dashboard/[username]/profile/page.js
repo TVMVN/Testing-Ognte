@@ -16,6 +16,7 @@ const Profile = () => {
   const [hydrated, setHydrated] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [hasChangesToSave, setHasChangesToSave] = useState(false);
+  const BACKEND_URL = "http://localhost:8000/"
 
   const [originalData, setOriginalData] = useState(null);
 
@@ -66,7 +67,7 @@ const Profile = () => {
     }
 
     try {
-      const res = await fetch('http://localhost:8000/api/auth/refresh/', {
+      const res = await fetch(`${BACKEND_URL}/api/auth/refresh/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh }),
@@ -135,7 +136,7 @@ const Profile = () => {
 
   // Fetch universities
   useEffect(() => {
-    fetch('http://localhost:8000/api/universities/')
+    fetch(`${BACKEND_URL}/api/universities/`)
       .then((res) => res.json())
       .then(setUniversities)
       .catch(console.error);
@@ -147,7 +148,7 @@ const Profile = () => {
     
     const fetchProfile = async () => {
       try {
-        const response = await makeAuthenticatedRequest('http://localhost:8000/api/candidates/profile/');
+        const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/candidates/profile/`);
         
         if (response && response.ok) {
           const data = await response.json();
@@ -321,7 +322,7 @@ const Profile = () => {
     if (resumeFile) fd.append('resume', resumeFile);
 
     try {
-      const response = await makeAuthenticatedRequest('http://localhost:8000/api/candidates/profile/', {
+      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/candidates/profile/`, {
         method: 'PATCH',
         body: fd,
       });

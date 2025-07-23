@@ -31,6 +31,13 @@ import {
   AlertTriangle,
   CheckCircle,
   X,
+  TrendingUp,
+  Clock,
+  FileText,
+  Shield,
+  Users,
+  Briefcase,
+  ChevronRight
 } from "lucide-react";
 import {
   DollarSign,
@@ -165,6 +172,7 @@ export default function RecruiterDashboard() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+  const BACKEND_URL = "http://localhost:8000/"
 
   const currencyIcons = {
     '$': <DollarSign size={16} />,
@@ -174,20 +182,23 @@ export default function RecruiterDashboard() {
   };
 
   // Enhanced form state for internship posting
-  const [form, setForm] = useState({
-    employer: '', // Will be auto-filled from profile
-    title: '',
-    description: '',
-    location: '',
-    skills: [],
-    is_remote: false,
-    is_active: true,
-    application_deadline: '',
-    salary: '',
-    currency: '₦',
-    paymentFrequency: 'monthly',
-    salaryType: 'paid',
-  });
+const [form, setForm] = useState({
+  employer: '',
+  title: '',
+  description: '',
+  location: '',
+  skills: [],
+  is_remote: false,
+  is_active: true,
+  application_deadline: '',
+  salary: '',
+  currency: '₦',
+  paymentFrequency: 'monthly',
+  salaryType: 'paid',
+  number_of_slots: 1,
+  industry: 'Technology',
+  duration_of_internship: 3,
+});
 
   const [tempFields, setTempFields] = useState({
     skills: '',
@@ -257,7 +268,7 @@ export default function RecruiterDashboard() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-      const res = await fetch('http://localhost:8000/api/auth/refresh/', {
+      const res = await fetch(`${BACKEND_URL}/api/auth/refresh/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh }),
@@ -367,7 +378,7 @@ export default function RecruiterDashboard() {
     
     // Notify server in background (don't wait for response)
     if (token) {
-      fetch('http://localhost:8000/api/auth/logout/', {
+      fetch(`${BACKEND_URL}/api/auth/logout/`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -401,84 +412,102 @@ export default function RecruiterDashboard() {
   };
 
   // Enhanced submit handler
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      toast.error("Please fix the errors in the form", {
-        duration: 3000,
-        description: "Check the highlighted fields and try again.",
-      });
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    toast.error("Please fix the errors in the form", {
+      duration: 3000,
+      description: "Check the highlighted fields and try again.",
+    });
+    return;
+  }
+  
+  setSubmitting(true);
+  
+  try {
+    // Map frontend form data to backend expected fields
+    // In your handleSubmit function
+const internshipData = {
+  title: form.title,
+  description: form.description,
+  location: form.is_remote ? 'Remote' : form.location,
+  required_skills: form.skills,
+  is_remote: form.is_remote,
+  is_active: form.is_active,
+  application_deadline: form.application_deadline,
+  number_of_slots: form.number_of_slots || 1,
+  industry: form.industry || 'Technology', // ADD THIS LINE
+  duration_of_internship: form.duration_of_internship || 3,
+  salary: {
+    amount: form.salaryType === 'paid' ? parseFloat(form.salary) : 0,
+    currency: form.currency === '₦' ? 'naira' : 
+              form.currency === '$' ? 'dollar' : 
+              form.currency === '€' ? 'euro' : 
+              form.currency === '£' ? 'pound' : 'naira',
+    status: form.salaryType,
+    payment_frequency: form.paymentFrequency,
+  }
+};
+
+    const res = await makeAuthenticatedRequest(
+      `${BACKEND_URL}/api/recruiters/jobs/`, 
+      {
+        method: 'POST',
+        body: JSON.stringify(internshipData),
+      }
+    );
+
+    if (!res) {
       return;
     }
-    
-    setSubmitting(true);
-    
-    try {
-      // Prepare form data with auto-filled employer info
-      const internshipData = {
-        ...form,
-        employer: companyName || 'Unknown Company',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+
+    if (res.ok) {
+      toast.success("Internship posted successfully!", {
+        duration: 5000,
+        description: "Your internship listing has been created and is now active.",
+        action: {
+          label: "View Listing",
+          onClick: () => router.push(`/dashboard/recruiter/${username}/listings`),
+        },
+      });
+      
+      // Reset form
+      // setForm({
+      //   employer: '',
+      //   title: '',
+      //   description: '',
+      //   location: '',
+      //   skills: [],
+      //   is_remote: false,
+      //   is_active: true,
+      //   application_deadline: '',
+      //   salary: '',
+      //   currency: '₦',
+      //   paymentFrequency: 'monthly',
+      //   salaryType: 'paid',
+      // });
+      setErrors({});
+      
+    } else {
+      const errorData = await res.json().catch(() => ({}));
+      console.error('Server response:', errorData); // Add debugging
+      throw { 
+        response: { status: res.status }, 
+        data: errorData 
       };
-
-      const res = await makeAuthenticatedRequest(
-        "http://localhost:8000/api/recruiters/internships/", 
-        {
-          method: 'POST',
-          body: JSON.stringify(internshipData),
-        }
-      );
-
-      if (!res) {
-        return;
-      }
-
-      if (res.ok) {
-        toast.success("Internship posted successfully!", {
-          duration: 5000,
-          description: "Your internship listing has been created and is now active.",
-          action: {
-            label: "View Listing",
-            onClick: () => router.push(`/dashboard/recruiter/${username}/listings`),
-          },
-        });
-        
-        // Reset form
-        setForm({
-          employer: '',
-          title: '',
-          description: '',
-          location: '',
-          skills: [],
-          is_remote: false,
-          is_active: true,
-          application_deadline: '',
-          salary: '',
-          currency: '₦',
-          paymentFrequency: 'monthly',
-          salaryType: 'paid',
-        });
-        setErrors({});
-        
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        throw { 
-          response: { status: res.status }, 
-          data: errorData 
-        };
-      }
-    } catch (error) {
-      ErrorHandler.showErrorToast(
-        error, 
-        'Posting internship',
-        () => handleSubmit(e)
-      );
-    } finally {
-      setSubmitting(false);
     }
-  };
+  } catch (error) {
+    console.error('Full error:', error); // Add debugging
+    ErrorHandler.showErrorToast(
+      error, 
+      'Posting internship',
+      () => handleSubmit(e)
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   // Enhanced profile fetch with better error handling
   useEffect(() => {
@@ -498,7 +527,7 @@ export default function RecruiterDashboard() {
         }
 
         const res = await makeAuthenticatedRequest(
-          "http://localhost:8000/api/recruiters/profile/", 
+          `${BACKEND_URL}/api/recruiters/profile/`, 
           { method: 'GET' }
         );
 
@@ -616,7 +645,7 @@ export default function RecruiterDashboard() {
                   <Link href="/"><li className="cursor-pointer">Home</li></Link>
                   <Link href={`/dashboard/recruiter/${username}/profile`}><li className="cursor-pointer">Edit Profile</li></Link>
                   <Link href={`/dashboard/recruiter/${username}/applications`}><li className="cursor-pointer">Applications</li></Link>
-                  <Link href={`/dashboard/recruiter/${username}/mentorship`}><li className="cursor-pointer">Mentorship</li></Link>
+                  {/* <Link href={`/dashboard/recruiter/${username}/mentorship`}><li className="cursor-pointer">Mentorship</li></Link> */}
                   <Link href={`/dashboard/recruiter/${username}/settings`}><li className="cursor-pointer">Edit Preferences</li></Link>
                   <Link href={`/dashboard/recruiter/${username}/safety-tips`}><li className="cursor-pointer">Safety tips</li></Link>
                   <li 
@@ -638,13 +667,13 @@ export default function RecruiterDashboard() {
         <h1 className="text-2xl font-bold text-green-600">Recruiter Panel</h1>
 
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-xl text-green-900 font-semibold">Welcome, {firstName || username}</h2>
+          <p className="text-md text-green-900 font-semibold">Welcome back, {firstName || username}! <span className= "text-gray-600">Manage your internships and applications</span></p>
 
           <Dialog>
             <DialogTrigger asChild>
               <Button
-                variant="outline"
-                className="bg-black cursor-pointer border-green-500 border-[1.5px] py-1 hover:bg-black hover:text-green-100 text-green-200"
+                // variant="outline"
+                className="bg-green-900 text-white hover:text-green-500 hover:bg-white cursor-pointer border-green-500 border-[1.5px] py-1 "
                 disabled={submitting}
               >
                 <Plus className="h-4 w-4" />
@@ -709,6 +738,51 @@ export default function RecruiterDashboard() {
                       {errors.description}
                     </p>
                   )}
+                </div>
+                {/* Number of Slots */}
+                <div>
+                  <Label className="text-green-700">Number of Available Positions</Label>
+                  <Input
+                    name="number_of_slots"
+                    type="number"
+                    min="1"
+                    value={form.number_of_slots || 1}
+                    onChange={handleOnChange}
+                    className="bg-gray-100 border-green-600 mt-2 text-black"
+                  />
+                </div>
+
+                {/* Industry */}
+                <div>
+                  <Label className="text-green-700">Industry</Label>
+                  <select
+                    name="industry"
+                    value={form.industry || 'Technology'}
+                    onChange={handleOnChange}
+                    className="w-full bg-gray-100 border border-green-600 rounded mt-2 px-3 py-2 text-black"
+                  >
+                    <option value="Technology">Technology</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Healthcare">Healthcare</option>
+                    <option value="Education">Education</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Design">Design</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {/* Duration */}
+                <div>
+                  <Label className="text-green-700">Duration (months)</Label>
+                  <Input
+                    name="duration_of_internship"
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={form.duration_of_internship || 3}
+                    onChange={handleOnChange}
+                    className="bg-gray-100 border-green-600 mt-2 text-black"
+                  />
                 </div>
 
                 {/* Location and Remote */}
@@ -899,77 +973,166 @@ export default function RecruiterDashboard() {
           </Dialog>
         </div>
          <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Link href={`/dashboard/recruiter/${username}/listings`}>
-            <div className="bg-green-200 p-6 rounded-lg shadow-gray-400 cursor-pointer hover:shadow-md transition">
-              <h3 className="text-xl font-semibold mb-2">Recent Listings</h3>
-              <p className="text-gray-700">Manage your active job listings.</p>
+          {/* <Link href={`/dashboard/recruiter/${username}/listings`}> */}
+            <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
+              
+              <div className="flex flex-row gap-[80%]">
+              <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
+                <Briefcase className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
+              </div>
+              <div className="text-right">
+              <h1 className="font-bold text-2xl">
+                12
+              </h1>
+              <p className="text-green-900 text-xs">+2 this week</p>
+              </div>
+              </div>
+              <h3 className="text-xl font-semibold">Active Listings</h3>
+              {/* <p className="text-gray-700">Manage your active job listings.</p> */}
             </div>
-          </Link>
 
-          <Link href={`/dashboard/recruiter/${username}/applications`}>
-            <div className="bg-green-800 p-6 rounded-lg shadow-white cursor-pointer hover:shadow-sm transition">
-              <h3 className="text-xl text-green-100 font-semibold mb-2">New Applications</h3>
-              <p className="text-gray-100">Review candidate applications.</p>
+          {/* </Link> */}
+
+          {/* <Link href={`/dashboard/recruiter/${username}/applications`}> */}
+            <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
+              
+              <div className="flex flex-row gap-[80%]">
+              <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
+                <Users className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
+              </div>
+              <div className="text-right">
+              <h1 className="font-bold text-2xl">
+                48
+              </h1>
+              <p className="text-green-900 text-xs">+15 this week</p>
+              </div>
+              </div>
+              <h3 className="text-xl font-semibold">Applications</h3>
+              {/* <p className="text-gray-700">Manage your active job listings.</p> */}
             </div>
-          </Link>
+          {/* </Link> */}
 
-          <div className="bg-green-800 p-6 rounded-lg shadow-gray-400 cursor-pointer hover:shadow-md transition">
-            <h2 className="text-green-100 font-bold text-xl">FAQs</h2>
-            <Accordion type="single" collapsible>
-              <AccordionItem value="item-1">
-                <AccordionTrigger className={`text-white`}>How do I post a job?</AccordionTrigger>
-                <AccordionContent className="text-gray-200">
-                  Click the "Post Job" button and fill out the required information.
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-            <Accordion type="single" collapsible>
-              <AccordionItem value="item-2">
-                <AccordionTrigger className={`text-white`}>How do I view applications?</AccordionTrigger>
-                <AccordionContent className="text-gray-200">
-                  Go to the Applications section to review candidate submissions.
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-            <Accordion type="single" collapsible>
-              <AccordionItem value="item-3">
-                <AccordionTrigger className={`text-white`}>Can I edit my job listings?</AccordionTrigger>
-                <AccordionContent className="text-gray-200">
-                  Yes, visit the Manage Listings page to edit or delete your jobs.
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </div>
+          {/* <Link href={`/dashboard/recruiter/${username}/applications`}> */}
+            <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
+              
+              <div className="flex flex-row  gap-[78%]">
+              <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
+              </div>
+              <div className="text-right">
+              <h1 className="font-bold text-2xl">
+                89%
+              </h1>
+              <p className="text-green-900  text-xs">+5% this month</p>
+              </div>
+              </div>
+              <h3 className="text-xl font-semibold">Response Rate</h3>
+              {/* <p className="text-gray-700">Manage your active job listings.</p> */}
+            </div>
+          {/* </Link> */}
 
-          <div className="bg-green-200 p-6 rounded-lg shadow-gray-400 cursor-pointer hover:shadow-md transition">
-            <h2 className="text-green-800 font-bold text-xl">Safety Tips</h2>
-            <p className="text-gray-600 mb-4 text-sm">Stay safe while recruiting</p>
-            <Accordion type="single" collapsible>
-              <AccordionItem value="safety-1">
-                <AccordionTrigger>Verify candidate information</AccordionTrigger>
-                <AccordionContent className="text-gray-700">
-                  Always verify candidate credentials and references before making hiring decisions.
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-            <Accordion type="single" collapsible>
-              <AccordionItem value="safety-2">
-                <AccordionTrigger>Secure communication</AccordionTrigger>
-                <AccordionContent className="text-gray-700">
-                  Use our platform's messaging system for initial communications.
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-            <Accordion type="single" collapsible>
-              <AccordionItem value="safety-3">
-                <AccordionTrigger>Professional interviews</AccordionTrigger>
-                <AccordionContent className="text-gray-700">
-                  Conduct interviews in professional settings and follow best practices.
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </div>
+          {/* <Link href={`/dashboard/recruiter/${username}/applications`}> */}
+            <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
+              
+              <div className="flex flex-row gap-[82%]">
+              <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
+                <Clock className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
+              </div>
+              <div className="text-right">
+              <h1 className="font-bold text-2xl">
+                14 <span className="text-gray-500 text-sm">days</span>
+              </h1>
+              <p className="text-green-900 text-xs">-2 days</p>
+              </div>
+              </div>
+              <h3 className="text-xl font-semibold">Avg. Time To Hire</h3>
+              {/* <p className="text-gray-700">Manage your active job listings.</p> */}
+            </div>
+          {/* </Link> */}
+
+              <div className="lg:col-span-2 space-y-6">
+                <div className={`dark:bg-gray-800 border-gray-200 dark:border-gray-700 bg-white border rounded-xl p-6 shadow-sm`}>
+                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-emerald-600" />
+                    Quick Actions
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    
+                    <button  className="group p-6 cursor-pointer bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700 hover:shadow-md transition-all">
+                      <Link href={`/dashboard/recruiter/${username}/listings`} >
+                      <div className="flex items-center justify-between mb-2">
+                        <FileText className="h-8 w-8 text-emerald-600" />
+                        <ChevronRight className="h-5 w-5 text-emerald-600 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                      <h3 className="font-semibold text-emerald-800 dark:text-emerald-300">Recent Listings</h3>
+                      <p className="text-sm text-emerald-600 dark:text-emerald-400">Manage active postings</p>
+                      </Link>
+                    </button>
+                    
+
+                    {/* <Link > */}
+                    <button className="group cursor-pointer p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-700 hover:shadow-md transition-all">
+                      <Link href={`/dashboard/recruiter/${username}/applications`} >
+                      <div className="flex items-center justify-between mb-2">
+                        <Users className="h-8 w-8 text-blue-600" />
+                        <ChevronRight className="h-5 w-5 text-blue-600 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                      <h3 className="font-semibold text-blue-800 dark:text-blue-300">Applications</h3>
+                      <p className="text-sm text-blue-600 dark:text-blue-400">Review candidates</p>
+                      </Link>
+                    </button>
+                    {/* </Link> */}
+                  </div>
+                </div>
+              </div>
+
+        
+
+
+
+          
         </section>
+                  <div className={`dark:bg-gray-800 border-gray-200 dark:border-gray-700 bg-white border mt-5 mb-5 border rounded-xl p-6 shadow-sm`}>
+              <h2 className="text-xl font-semibold mb-4">Frequently Asked Questions</h2>
+              <div className="space-y-4">
+                {[
+                  { q: "How do I post a job?", a: "Click the 'Post Internship' button and fill out the required information." },
+                  { q: "How do I view applications?", a: "Go to the Applications section to review candidate submissions." },
+                  { q: "Can I edit my job listings?", a: "Yes, visit the Manage Listings page to edit or delete your jobs." }
+                ].map((faq, index) => (
+                  <details key={index} className="group">
+                    <summary className="flex items-center justify-between cursor-pointer p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                      <span className="font-medium">{faq.q}</span>
+                      <ChevronRight className="h-4 w-4 text-gray-500 group-open:rotate-90 transition-transform" />
+                    </summary>
+                    <div className="mt-2 p-3 text-sm text-gray-600 dark:text-gray-400 bg-gray-25 dark:bg-gray-850 rounded-lg">
+                      {faq.a}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </div>
+
+            <div className={`dark:bg-gray-800 border-gray-200 dark:border-gray-700 bg-white border rounded-xl p-6 shadow-sm`}>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Shield className="h-5 w-5 text-emerald-600" />
+                Safety Tips
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                  <strong className="text-emerald-800 dark:text-emerald-300">Verify Information</strong>
+                  <p className="text-emerald-700 dark:text-emerald-400 mt-1">Always verify candidate credentials before hiring.</p>
+                </div>
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <strong className="text-blue-800 dark:text-blue-300">Secure Communication</strong>
+                  <p className="text-blue-700 dark:text-blue-400 mt-1">Use our platform's messaging system initially.</p>
+                </div>
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <strong className="text-purple-800 dark:text-purple-300">Professional Interviews</strong>
+                  <p className="text-purple-700 dark:text-purple-400 mt-1">Conduct interviews in professional settings.</p>
+                </div>
+              </div>
+            </div>
       </main>
     </div>
   );
