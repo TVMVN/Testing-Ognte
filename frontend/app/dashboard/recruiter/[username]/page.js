@@ -427,29 +427,31 @@ const [form, setForm] = useState({
   
   try {
     // Map frontend form data to backend expected fields
-    const internshipData = {
-      title: form.title,
-      description: form.description,
-      location: form.is_remote ? 'Remote' : form.location,
-      required_skills: form.skills, // Backend expects 'required_skills', not 'skills'
-      is_remote: form.is_remote,
-      is_active: form.is_active,
-      application_deadline: form.application_deadline,
-      number_of_slots: 1, // Add default value
-      industry: 'General', // Add default value or make this a form field
-      duration_of_internship: 3, // Add default value or make this a form field
-      // Map salary fields to what backend expects
-      salary_amount: form.salaryType === 'paid' ? parseFloat(form.salary) : 0,
-      salary_currency: form.currency === '₦' ? 'naira' : 
-                      form.currency === '$' ? 'dollar' : 
-                      form.currency === '€' ? 'euro' : 
-                      form.currency === '£' ? 'pound' : 'naira',
-      salary_status: form.salaryType,
-      salary_frequency: form.paymentFrequency,
-    };
+    // In your handleSubmit function
+const internshipData = {
+  title: form.title,
+  description: form.description,
+  location: form.is_remote ? 'Remote' : form.location,
+  required_skills: form.skills,
+  is_remote: form.is_remote,
+  is_active: form.is_active,
+  application_deadline: form.application_deadline,
+  number_of_slots: form.number_of_slots || 1,
+  industry: form.industry || 'Technology', // ADD THIS LINE
+  duration_of_internship: form.duration_of_internship || 3,
+  salary: {
+    amount: form.salaryType === 'paid' ? parseFloat(form.salary) : 0,
+    currency: form.currency === '₦' ? 'naira' : 
+              form.currency === '$' ? 'dollar' : 
+              form.currency === '€' ? 'euro' : 
+              form.currency === '£' ? 'pound' : 'naira',
+    status: form.salaryType,
+    payment_frequency: form.paymentFrequency,
+  }
+};
 
     const res = await makeAuthenticatedRequest(
-      `${BACKEND_URL}api/recruiters/jobs/`, 
+      `${BACKEND_URL}/api/recruiters/jobs/`, 
       {
         method: 'POST',
         body: JSON.stringify(internshipData),
@@ -471,20 +473,20 @@ const [form, setForm] = useState({
       });
       
       // Reset form
-      setForm({
-        employer: '',
-        title: '',
-        description: '',
-        location: '',
-        skills: [],
-        is_remote: false,
-        is_active: true,
-        application_deadline: '',
-        salary: '',
-        currency: '₦',
-        paymentFrequency: 'monthly',
-        salaryType: 'paid',
-      });
+      // setForm({
+      //   employer: '',
+      //   title: '',
+      //   description: '',
+      //   location: '',
+      //   skills: [],
+      //   is_remote: false,
+      //   is_active: true,
+      //   application_deadline: '',
+      //   salary: '',
+      //   currency: '₦',
+      //   paymentFrequency: 'monthly',
+      //   salaryType: 'paid',
+      // });
       setErrors({});
       
     } else {
