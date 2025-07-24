@@ -45,7 +45,7 @@ class ApplyToJobView(APIView):
             return Response({'error': 'Candidate profile not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
-            job_post = JobPost.objects.get(pk=job_id)
+            job_post = JobPost.objects.get(pk=job_id, is_active=True)
         except JobPost.DoesNotExist:
             return Response({'error': 'Job post not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -103,7 +103,7 @@ class ToggleUniversityViewPermission(APIView):
     permission_classes = [IsAuthenticated, IsCandidateUser]
 
     def post(self, request):
-        candidate = request.user.candidate_profile.first()
+        candidate = getattr(request.user, 'candidate_profile', None)
         if not candidate:
             return Response({'error': 'Candidate profile not found.'}, status=404)
 

@@ -9,5 +9,6 @@ router.register(r'salaries', SalaryViewSet, basename='salary')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('jobs/<int:pk>/toggle-active/', JobPostViewSet.as_view({'post': 'toggle_active'})),
 
 ]

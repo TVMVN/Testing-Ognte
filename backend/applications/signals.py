@@ -44,3 +44,7 @@ def auto_reject_when_slots_filled(sender, instance, **kwargs):
                     recipient_list=[app.candidate.user.email],
                     fail_silently=True
                 )
+
+    elif job.is_active is False and accepted_apps < job.application_slots:
+        job.is_active = True
+        job.save()            

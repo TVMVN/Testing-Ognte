@@ -28,13 +28,14 @@ from matching.serializers import CandidateJobMatchSerializer
 # Unified JobPost ViewSet
 # -------------------------
 
+
 class UnifiedJobPostViewSet(viewsets.ModelViewSet):
     """
     Handles both recruiter and candidate interactions with JobPost:
     - Recruiters: Create, update, delete their own job posts
     - Candidates: View only active jobs
     """
-    permission_classes = [permissions.IsAuthenticated]
+   
     pagination_class = DefaultPagination
 
     def get_serializer_class(self):
@@ -44,11 +45,16 @@ class UnifiedJobPostViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Recruiter view (see all their jobs)
-        if hasattr(user, 'recruiter_profile'):
-            return JobPost.objects.filter(recruiter=user.recruiter_profile).order_by('-created_at')
 
-        # Candidate view (see only active jobs)
+        # Recruiter: see all their jobs, with optional ?is_active=true/false filter
+        if hasattr(user, 'recruiter_profile'):
+            queryset = JobPost.objects.filter(recruiter=user.recruiter_profile)
+            is_active = self.request.query_params.get('is_active')
+            if is_active in ['true', 'false']:
+                queryset = queryset.filter(is_active=(is_active == 'true'))
+            return queryset.order_by('-created_at')
+
+        # Candidate: see only active jobs
         return JobPost.objects.filter(
             is_active=True,
             application_deadline__gte=timezone.now().date()
@@ -58,7 +64,7 @@ class UnifiedJobPostViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not hasattr(user, 'recruiter_profile'):
             raise PermissionDenied("Only recruiters can post jobs.")
-        serializer.save(recruiter=user.recruiter_profile, is_active=False)  # default: draft
+        serializer.save(recruiter=user.recruiter_profile, is_active=True)
 
     def perform_update(self, serializer):
         user = self.request.user
@@ -93,6 +99,27 @@ class UnifiedJobPostViewSet(viewsets.ModelViewSet):
         page = self.paginate_queryset(applications)
         serializer = ApplicationSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='toggle-active')
+    def toggle_active_status(self, request, pk=None):
+        """
+        Allow recruiters to manually toggle a job post's active state
+        """
+        job = get_object_or_404(JobPost, pk=pk)
+
+        if not hasattr(request.user, 'recruiter_profile') or job.recruiter != request.user.recruiter_profile:
+            return Response({'detail': 'Not authorized to toggle this job.'}, status=status.HTTP_403_FORBIDDEN)
+
+        job.is_active = not job.is_active
+        job.save()
+
+        return Response({
+            'id': job.id,
+            'is_active': job.is_active,
+            'message': f'Job post has been {"activated" if job.is_active else "deactivated"}.'
+        })
+    
+
 
 # -----------------------------------------
 # Employer/Recruiter Analytics ViewSet

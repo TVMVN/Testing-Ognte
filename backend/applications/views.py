@@ -57,6 +57,17 @@ class JobPostViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()[:5]
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], url_path='toggle-active')
+    def toggle_active(self, request, pk=None):
+        job_post = self.get_object()
+        if job_post.recruiter.user != request.user:
+            return Response({'detail': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        job_post.is_active = not job_post.is_active
+        job_post.save()
+        return Response({'is_active': job_post.is_active})
+
 
     @action(detail=True, methods=['get'], url_path='applications')
     def applications(self, request, pk=None):
