@@ -98,3 +98,19 @@ class CandidateStatsView(APIView):
                 for match in matches.order_by("-total_score")[:5]
             ]
         })
+
+class ToggleUniversityViewPermission(APIView):
+    permission_classes = [IsAuthenticated, IsCandidateUser]
+
+    def post(self, request):
+        candidate = request.user.candidate_profile.first()
+        if not candidate:
+            return Response({'error': 'Candidate profile not found.'}, status=404)
+
+        candidate.can_university_view = not candidate.can_university_view
+        candidate.save()
+
+        return Response({
+            'can_university_view': candidate.can_university_view,
+            'message': 'University view permission updated.'
+        }, status=200)
