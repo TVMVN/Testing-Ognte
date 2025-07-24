@@ -9,7 +9,7 @@ from django.core.exceptions import PermissionDenied
 class SalarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Salary
-        fields = ['id', 'amount', 'currency', 'status']
+        fields = ['amount', 'currency', 'status']
 
 
 # ---------------------------
@@ -18,6 +18,8 @@ class SalarySerializer(serializers.ModelSerializer):
 class JobNestedSerializer(serializers.ModelSerializer):
     recruiter = serializers.SerializerMethodField()
     salary = SalarySerializer(read_only=True)
+    required_skills = serializers.ListField(child=serializers.CharField(), required=False)
+
 
     class Meta:
         model = JobPost
@@ -37,6 +39,8 @@ class JobNestedSerializer(serializers.ModelSerializer):
 class JobSerializer(serializers.ModelSerializer):
     recruiter = serializers.SerializerMethodField()
     salary = SalarySerializer(read_only=True)
+    required_skills = serializers.ListField(child=serializers.CharField(), required=False)
+
 
     class Meta:
         model = JobPost
@@ -49,6 +53,8 @@ class JobSerializer(serializers.ModelSerializer):
 class JobPostingSerializer(serializers.ModelSerializer):
     recruiter = serializers.SerializerMethodField()
     salary = SalarySerializer()
+    required_skills = serializers.ListField(child=serializers.CharField(), required=False)
+
 
     class Meta:
         model = JobPost
@@ -68,7 +74,10 @@ class JobPostingSerializer(serializers.ModelSerializer):
 # Job Creation Serializer (POST)
 # ---------------------------
 class JobPostingCreateSerializer(serializers.ModelSerializer):
-    salary = serializers.PrimaryKeyRelatedField(queryset=Salary.objects.all())
+    salary = SalarySerializer()
+    required_skills = serializers.ListField(
+        child=serializers.CharField(), required=False
+    )
 
     class Meta:
         model = JobPost
@@ -81,11 +90,34 @@ class JobPostingCreateSerializer(serializers.ModelSerializer):
             raise PermissionDenied("Only recruiters can post jobs.")
 
         validated_data.pop('recruiter', None)
-        recruiter = user.recruiter_profile
-        job_post = JobPost.objects.create(recruiter=recruiter, **validated_data)
 
+        salary_data = validated_data.pop('salary')
+        salary_instance = Salary.objects.create(**salary_data)
+        recruiter = user.recruiter_profile
+        job_post = JobPost.objects.create(
+            recruiter=recruiter,
+            salary=salary_instance,
+            **validated_data
+        )
 
         return job_post
+    
+    def update(self, instance, validated_data):
+        salary_data = validated_data.pop('salary', None)
+
+        # Update salary fields if provided
+        if salary_data:
+            salary = instance.salary
+            for attr, value in salary_data.items():
+                setattr(salary, attr, value)
+            salary.save()
+
+        # Update job post fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
 
 
 # ---------------------------

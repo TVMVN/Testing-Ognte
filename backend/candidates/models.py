@@ -21,6 +21,7 @@ class Candidate(models.Model):
     duration_of_internship = models.IntegerField()
     is_seeking = models.BooleanField(default=True)
     registered_with_overseer = models.BooleanField(default=False)
+    seeking_job = models.BooleanField(default=True)
     
     def __str__(self):
         return f"{self.user.username} - Candidate"

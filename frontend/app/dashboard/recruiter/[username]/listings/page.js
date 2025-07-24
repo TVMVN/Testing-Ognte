@@ -138,7 +138,7 @@ export default function ListingsPage() {
       id: job.id,
       jobTitle: job.title,
       jobDescription: job.description,
-      skills: job.required_skills || [],
+      skills: job.required_skills || {},
       createdAt: job.created_at,
       salary_from: job.salary?.amount || 'Not specified',
     }));
