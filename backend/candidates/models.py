@@ -23,6 +23,8 @@ class Candidate(models.Model):
     is_seeking = models.BooleanField(default=True)
     registered_with_overseer = models.BooleanField(default=False)
     seeking_job = models.BooleanField(default=True)
+    cover_letter = models.TextField(blank=True, null=True)
+
     
     def __str__(self):
         return f"{self.user.username} - Candidate"
