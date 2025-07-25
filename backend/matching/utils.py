@@ -25,38 +25,43 @@ def calculate_total_score(match):
     return match
 
 
-
-def match_candidate_to_jobs(candidate):
+def match_candidate_to_jobs(candidate, skill_threshold=0.4):
     jobs = JobPost.objects.all()
     matches = []
 
     for job in jobs:
+        skill_score = calculate_skill_score(candidate.skills, job.skills)
         if (
             job.location.lower() == candidate.location.lower()
             and job.duration == candidate.duration_of_internship
             and job.industry.lower() == candidate.employment_type.lower()
-            and all(skill.lower() in [s.lower() for s in candidate.skills] for skill in job.skills)
+            and skill_score >= skill_threshold
         ):
             matches.append(job)
 
+    # fallback
     if not matches:
         matches = JobPost.objects.filter(industry__iexact=candidate.employment_type)[:10]
+
     return matches
 
-def match_jobpost_to_candidates(job):
+
+def match_jobpost_to_candidates(job, skill_threshold=0.4):
     candidates = Candidate.objects.all()
     matches = []
 
     for candidate in candidates:
+        skill_score = calculate_skill_score(candidate.skills, job.skills)
         if (
             job.location.lower() == candidate.location.lower()
             and job.duration == candidate.duration_of_internship
             and job.industry.lower() == candidate.employment_type.lower()
-            and all(skill.lower() in [s.lower() for s in candidate.skills] for skill in job.skills)
+            and skill_score >= skill_threshold
         ):
             matches.append(candidate)
 
+    # fallback
     if not matches:
         matches = Candidate.objects.filter(employment_type__iexact=job.industry)[:10]
-    return matches
 
+    return matches

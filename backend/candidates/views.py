@@ -1,30 +1,19 @@
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from .models import Candidate
-from .serializers import CandidateProfileSerializer, MyApplicationSerializer
-from .permissions import IsCandidateUser
-from applications.models import JobPost, Application
-from applications.serializers import ApplicationCreateSerializer
-from .utils import create_notification
-from rest_framework.exceptions import ValidationError
-from rest_framework import status, permissions
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
+
+from .models import Candidate
 from .permissions import IsCandidateUser
-from applications.models import JobPost
+from .serializers import CandidateProfileSerializer, MyApplicationSerializer
+from .utils import create_notification
+
+from candidates.serializers import ApplicationCreateSerializer  # ✅ Use the correct one
+from applications.models import JobPost, Application
 from matching.models import CandidateJobMatch
 from matching.serializers import CandidateJobMatchSerializer
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from candidates.permissions import IsCandidateUser
-from applications.models import Application
-from matching.models import CandidateJobMatch
-from candidates.models import Candidate
 
 class MyApplicationsView(generics.ListAPIView):
     serializer_class = MyApplicationSerializer
@@ -34,34 +23,26 @@ class MyApplicationsView(generics.ListAPIView):
         return Application.objects.filter(candidate=self.request.user.candidate_profile.first())
 
 
-
 class ApplyToJobView(APIView):
     permission_classes = [IsAuthenticated, IsCandidateUser]
 
     def post(self, request, job_id, *args, **kwargs):
-        try:
-            candidate = Candidate.objects.get(user=request.user)
-        except Candidate.DoesNotExist:
+        candidate = getattr(request.user, 'candidate_profile', None)
+        if not candidate:
             return Response({'error': 'Candidate profile not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        try:
-            job_post = JobPost.objects.get(pk=job_id, is_active=True)
-        except JobPost.DoesNotExist:
-            return Response({'error': 'Job post not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        print(f"🔍 Serializer context candidate: {candidate}")
-        print(f"🔍 Serializer context job_post: {job_post}")
+        job_post = JobPost.objects.filter(pk=job_id, is_active=True).first()
+        if not job_post:
+            return Response({'error': 'Job post not found or inactive.'}, status=status.HTTP_404_NOT_FOUND)
 
         context = {'request': request, 'candidate': candidate, 'job_post': job_post}
         serializer = ApplicationCreateSerializer(data=request.data, context=context)
 
         if serializer.is_valid():
-            application = serializer.save()  # <- ✅ Don't manually pass applicant or job_post
+            serializer.save()
             return Response({'message': 'Application submitted successfully.'}, status=status.HTTP_201_CREATED)
-        else:
-            print("❌ Serializer errors:", serializer.errors)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CandidateDashboardMatchesView(APIView):
@@ -85,7 +66,7 @@ class CandidateStatsView(APIView):
         applications = Application.objects.filter(candidate=candidate)
         matches = CandidateJobMatch.objects.filter(candidate=candidate)
 
-        return Response({
+        stats = {
             "total_applications": applications.count(),
             "accepted_applications": applications.filter(status="accepted").count(),
             "rejected_applications": applications.filter(status="rejected").count(),
@@ -97,7 +78,9 @@ class CandidateStatsView(APIView):
                 }
                 for match in matches.order_by("-total_score")[:5]
             ]
-        })
+        }
+        return Response(stats)
+
 
 class ToggleUniversityViewPermission(APIView):
     permission_classes = [IsAuthenticated, IsCandidateUser]

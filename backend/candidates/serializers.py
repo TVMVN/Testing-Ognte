@@ -20,9 +20,11 @@ class MyApplicationSerializer(serializers.ModelSerializer):
 
 
 class ApplicationCreateSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Application
         fields = ['resume', 'cover_letter']
+
 
     def _get_candidate(self):
         """Handles both reverse one-to-one and one-to-many related_name"""
@@ -35,6 +37,7 @@ class ApplicationCreateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         candidate = self._get_candidate()
         job_post = self.context.get("job_post")
+        print("🔧 Using updated ApplicationCreateSerializer")
 
         if not candidate or not job_post:
             raise serializers.ValidationError("Applicant and job post must be provided.")

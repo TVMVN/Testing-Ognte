@@ -134,7 +134,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'resume', 'cover_letter',
             'applied_at', 'status'
         ]
-
+    
     def get_candidate(self, obj):
         return str(obj.candidate.user.get_full_name()) if obj.candidate else None
 
