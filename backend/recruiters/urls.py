@@ -1,7 +1,7 @@
 from django.urls import path, include
 from .auth_views import RecruiterProfileView, RecruiterListView
 from rest_framework.routers import DefaultRouter
-from recruiters.views import UnifiedJobPostViewSet, EmployerAnalyticsViewSet, RecruiterDashboardMatchesView
+from recruiters.views import UnifiedJobPostViewSet, EmployerAnalyticsViewSet, RecruiterDashboardMatchesView, AllRecruiterApplicationsView
 
 router = DefaultRouter()
 router.register(r'jobs', UnifiedJobPostViewSet, basename='recruiter-jobs')
@@ -16,4 +16,8 @@ urlpatterns = [
 
     # Dashboard
     path('matches/', RecruiterDashboardMatchesView.as_view(), name='recruiter-matches'),
+
+    #Applications_View
+    path('all-applications/', AllRecruiterApplicationsView.as_view(), name='recruiter-all-applications'),
 ]
+

@@ -24,7 +24,7 @@ class JobNestedSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobPost
         fields = [
-            'id', 'title', 'location', 'type', 'description',
+            'id', 'title', 'location',  'description',
             'required_skills', 'duration_of_internship',
             'number_of_slots', 'salary', 'recruiter', 'created_at'
         ]

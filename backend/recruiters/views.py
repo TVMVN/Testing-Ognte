@@ -191,3 +191,13 @@ class RecruiterDashboardMatchesView(APIView):
             })
 
         return Response({'recruiter_matches': results})
+
+class AllRecruiterApplicationsView(APIView):
+    permission_classes = [IsAuthenticated, IsRecruiterUser]
+
+    def get(self, request):
+        recruiter = request.user.recruiter_profile
+        job_posts = JobPost.objects.filter(recruiter=recruiter)
+        applications = Application.objects.filter(job_post__in=job_posts).select_related('candidate', 'job_post')
+        serializer = ApplicationSerializer(applications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
