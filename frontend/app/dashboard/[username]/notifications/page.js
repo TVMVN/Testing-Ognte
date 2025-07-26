@@ -20,6 +20,8 @@ const NotificationPage = () => {
   const [loading, setLoading] = useState(true);
   const [allRead, setAllRead] = useState(false);
 
+  const BACKEND_URL = "http://localhost:8000"
+
   // Error handler
   const ErrorHandler = {
     showErrorToast: (error, context) => {
@@ -280,7 +282,7 @@ const NotificationPage = () => {
     <div className="min-h-screen bg-green-50 text-gray-800 p-6">
       <div className="max-w-4xl mx-auto">
         <header className="flex items-center justify-between mb-6">
-          <Link href={`/dashboard/university/${shortUniName}`}>
+          <Link href={`/dashboard/recruiter/${username}`}>
             <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
               <BellIcon className="w-8 h-8 text-green-400" />
               <h1 className="text-3xl font-bold text-green-500">Notifications</h1>

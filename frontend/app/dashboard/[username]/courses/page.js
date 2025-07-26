@@ -2,14 +2,13 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from 'next/navigation';
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { toast } from "sonner"; // Optional: Assuming you're using react-toastify
+import { ArrowLeft, Clock, Play, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 
 const YouTubeVideos = () => {
   const { username } = useParams();
   const router = useRouter();
   const BACKEND_URL = "http://localhost:8000/"
-
 
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -111,38 +110,134 @@ const YouTubeVideos = () => {
     return hours * 60 + minutes + Math.floor(seconds / 60);
   };
 
+  // Format duration for display
+  const formatDuration = (minutes) => {
+    if (minutes < 60) {
+      return `${minutes}m`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  };
+
   return (
-    <div className="container bg-black w-full px-4 mr-0 py-8">
-      <Link href={`/dashboard/${username}`}>
-        <div className="flex items-center mb-6 text-green-700 hover:text-green-300">
-          <ArrowLeft className="mr-2" />
-          <span>Back to Dashboard</span>
-        </div>
-      </Link>
-
-      <h2 className="text-3xl font-semibold text-green-700 mb-8">YouTube Micro Courses</h2>
-
-      {loading ? (
-        <div className="flex flex-col items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-green-400 border-solid"></div>
-          <p className="mt-4 text-gray-700">Loading Courses...</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 border-2 rounded-2xl p-4 border-green-500">
-          {videos.map((video, index) => (
-            <div key={index} className="bg-green-800 rounded-lg border-white shadow-lg overflow-hidden transition-transform transform hover:scale-105">
-              <a href={video.videoUrl} target="_blank" rel="noopener noreferrer" className="border-green-500 hover:shadow-lg transition duration-300"
->
-                <img src={video.thumbnail} alt={video.title} className="w-full h-48 object-cover rounded-t-lg" />
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-green-300">{video.title}</h3>
-                  <p className="text-sm text-gray-200 mt-2">{video.description.slice(0, 100)}...</p>
-                </div>
-              </a>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Header Section */}
+        <div className="mb-8">
+          <Link href={`/dashboard/${username}`}>
+            <div className="inline-flex items-center mb-6 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 transition-colors duration-200 group">
+              <ArrowLeft className="mr-2 w-5 h-5 group-hover:-translate-x-1 transition-transform duration-200" />
+              <span className="font-medium">Back to Dashboard</span>
             </div>
-          ))}
+          </Link>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+                 Micro Courses
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300 text-lg">
+                Curated learning content for{" "}
+                <span className="text-green-600 dark:text-green-400 font-semibold">
+                  {editValues.title || "your field"}
+                </span>
+              </p>
+            </div>
+            <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+              <Play className="w-4 h-4" />
+              <span>{videos.length} courses available</span>
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* Loading State */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <div className="relative">
+              <div className="w-20 h-20 border-4 border-green-200 dark:border-green-800 rounded-full animate-spin border-t-green-600 dark:border-t-green-400"></div>
+              <div className="absolute inset-0 w-20 h-20 border-4 border-transparent rounded-full animate-ping border-t-green-400 dark:border-t-green-300"></div>
+            </div>
+            <p className="mt-6 text-gray-600 dark:text-gray-300 text-lg font-medium">
+              Discovering amazing courses for you...
+            </p>
+            <p className="mt-2 text-gray-500 dark:text-gray-400 text-sm">
+              This might take a moment
+            </p>
+          </div>
+        ) : (
+          /* Courses Grid */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {videos.map((video, index) => (
+              <div
+                key={index}
+                className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-xl dark:shadow-gray-900/20 dark:hover:shadow-gray-900/40 border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 hover:-translate-y-1"
+              >
+                <a
+                  href={video.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  {/* Thumbnail Container */}
+                  <div className="relative overflow-hidden">
+                    <img
+                      src={video.thumbnail}
+                      alt={video.title}
+                      className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    {/* Overlay */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      <div className="bg-green-600 dark:bg-green-500 rounded-full p-3 transform scale-90 group-hover:scale-100 transition-transform duration-300">
+                        <Play className="w-6 h-6 text-white fill-current" />
+                      </div>
+                    </div>
+                    {/* Duration Badge */}
+                    <div className="absolute bottom-3 right-3 bg-black/80 text-white text-xs px-2 py-1 rounded-full flex items-center space-x-1">
+                      <Clock className="w-3 h-3" />
+                      <span>{formatDuration(video.duration)}</span>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-5">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 leading-tight group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-200 line-clamp-2">
+                      {video.title}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm line-clamp-3 mb-4">
+                      {video.description.slice(0, 120)}...
+                    </p>
+                    
+                    {/* Action Footer */}
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+                      <span className="text-green-600 dark:text-green-400 text-sm font-medium flex items-center space-x-1">
+                        <span>Watch Course</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </span>
+                      <div className="w-2 h-2 bg-green-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    </div>
+                  </div>
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && videos.length === 0 && (
+          <div className="text-center py-16">
+            <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Play className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              No courses found
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 max-w-md mx-auto">
+              We couldn't find any courses for your current professional title. Try updating your profile or check back later.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

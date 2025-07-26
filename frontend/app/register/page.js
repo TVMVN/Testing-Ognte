@@ -285,7 +285,7 @@ export default function UniqueRegister() {
         const res = await fetch(`${BACKEND_URL}/api/universities`);
         if (!res.ok) throw new Error("Failed to fetch universities");
         const data = await res.json();
-        setUniversities(data);
+        setUniversities(data.results);
       } catch (err) {
         console.error('Error fetching universities:', err);
       }
@@ -348,11 +348,15 @@ export default function UniqueRegister() {
                 className="bg-green-50 border border-green-300 p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-green-900 transition-all duration-200"
               >
                 <option value="" className="text-green-600">Select University</option>
-                {universities.map((uni) => (
-                  <option key={uni.university_id || uni.id} value={uni.university_id || uni.id}>
-                    {uni.name}
-                    </option>
-                  ))}
+                {Array.isArray(universities) && universities.length > 0 ? (
+    universities.map((uni) => (
+      <option key={uni.university_id || uni.id || uni.name} value={uni.university_id || uni.id}>
+        {uni.name}
+      </option>
+    ))
+  ) : (
+    <option value="" disabled className="text-gray-500">Loading universities...</option>
+  )}
               </select>
               <input 
                 type="text" 

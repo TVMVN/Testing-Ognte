@@ -15,18 +15,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-const mockJobRequirements = {
-  frontend: {
-    requiredSkills: {
-      HTML: 3,
-      CSS: 3,
-      JavaScript: 4,
-      React: 4,
-      Git: 2,
-    },
-  },
-};
-
 const StudentDashboard = () => {
   const router = useRouter();
   const { username } = useParams();
@@ -35,6 +23,8 @@ const StudentDashboard = () => {
   const [firstName, setFirstName] = useState(null);
   const [title, setTitle] = useState(null);
   const [jobs, setJobs] = useState([]);
+  const [matchedJobs, setMatchedJobs] = useState([]);
+  const [jobsLoading, setJobsLoading] = useState(true);
   const BACKEND_URL = "http://localhost:8000/";
 
   const [resumeScore, setResumeScore] = useState(0);
@@ -114,34 +104,34 @@ const StudentDashboard = () => {
   };
 
   const handleLogoutWithConfirmation = async () => {
-  const confirmed = window.confirm('Are you sure you want to logout?');
-  if (!confirmed) return;
-  
-  try {
-    const token = getAccessToken();
+    const confirmed = window.confirm('Are you sure you want to logout?');
+    if (!confirmed) return;
     
-    // Clear tokens immediately
-    clearTokens();
-    
-    // Notify server in background (don't wait for response)
-    if (token) {
-      fetch(`${BACKEND_URL}/api/auth/logout/`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      }).catch(err => console.error('Background logout error:', err));
+    try {
+      const token = getAccessToken();
+      
+      // Clear tokens immediately
+      clearTokens();
+      
+      // Notify server in background (don't wait for response)
+      if (token) {
+        fetch(`${BACKEND_URL}/api/auth/logout/`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }).catch(err => console.error('Background logout error:', err));
+      }
+      
+      // Redirect immediately
+      router.push('/login');
+    } catch (err) {
+      console.error('Logout error:', err);
+      // Force redirect even if there's an error
+      router.push('/login');
     }
-    
-    // Redirect immediately
-    router.push('/login');
-  } catch (err) {
-    console.error('Logout error:', err);
-    // Force redirect even if there's an error
-    router.push('/login');
-  }
-};
+  };
 
   // Enhanced API request function with automatic token refresh
   const makeAuthenticatedRequest = async (url, options = {}) => {
@@ -191,22 +181,71 @@ const StudentDashboard = () => {
     }
   };
 
-  // Fetch jobs
+  // Fetch matched jobs for the candidate
   useEffect(() => {
-    const fetchJobs = async () => {
+    const fetchMatchedJobs = async () => {
+      if (!username) return;
+      
+      setJobsLoading(true);
       try {
-        const res = await fetch("https://681906185a4b07b9d1d1b8a6.mockapi.io/api/testingTVMVN/recruiters/1/jobs");
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setJobs(data.slice(0, 5)); // Limit to 5 jobs max
+        const res = await makeAuthenticatedRequest(`${BACKEND_URL}/api/matching/match/candidate`, {
+          method: 'GET',
+        });
+
+        if (!res) {
+          // makeAuthenticatedRequest already handled the error
+          return;
         }
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error(`HTTP error ${res.status}:`, errorText);
+          throw new Error(`HTTP error ${res.status}: ${errorText}`);
+        }
+
+        const data = await res.json();
+        console.log('Matched jobs data:', data);
+        
+        // Assuming the API returns an array of matched jobs
+        // Sort by match score (if available) and take top 5
+        let sortedJobs = Array.isArray(data) ? data : (data.matches || data.jobs || []);
+        
+        if (sortedJobs.length > 0) {
+          // Sort by match_score or compatibility_score if available
+          sortedJobs = sortedJobs.sort((a, b) => {
+            const scoreA = a.match_score || a.compatibility_score || a.score || 0;
+            const scoreB = b.match_score || b.compatibility_score || b.score || 0;
+            return scoreB - scoreA; // Descending order
+          });
+          
+          // Take only the top 5 jobs
+          setMatchedJobs(sortedJobs.slice(0, 5));
+        } else {
+          setMatchedJobs([]);
+        }
+        
       } catch (error) {
-        console.error("Error fetching jobs:", error);
+        console.error("Error fetching matched jobs:", error);
+        toast.error("Failed to fetch job recommendations");
+        
+        // Fallback to mock API if matching API fails
+        try {
+          const fallbackRes = await fetch("https://681906185a4b07b9d1d1b8a6.mockapi.io/api/testingTVMVN/recruiters/1/jobs");
+          const fallbackData = await fallbackRes.json();
+          if (Array.isArray(fallbackData)) {
+            setMatchedJobs(fallbackData.slice(0, 5));
+          }
+        } catch (fallbackError) {
+          console.error("Fallback API also failed:", fallbackError);
+          setMatchedJobs([]);
+        }
+      } finally {
+        setJobsLoading(false);
       }
     };
 
-    fetchJobs();
-  }, []);
+    fetchMatchedJobs();
+  }, [username]);
 
   // Fetch user profile
   useEffect(() => {
@@ -413,16 +452,12 @@ const StudentDashboard = () => {
                         <Link href={`/dashboard/${username}/safety-tips`}>
                           <li className="cursor-pointer">Safety tips</li>
                         </Link>
-                        {/* <Link href={`/dashboard/${username}/mentorship`}>
-                          <li className="cursor-pointer">Mentorship</li>
-                        </Link> */}
                         <li 
                           onClick={handleLogoutWithConfirmation} 
                           className="  text-black dark:text-white hover:text-red-600 cursor-pointer"
                         >
                           Logout
                         </li>
-                        
                       </ul>
                     </div>
                   </div>
@@ -438,27 +473,69 @@ const StudentDashboard = () => {
           <h2 className="text-xl font-semibold text-green-800 mb-2">{firstName}</h2>
           <h2 className="text-xl font-semibold text-green-500 mb-2">Your Resume Score</h2>
           <p className="text-2xl font-bold text-green-600">80%</p>
-          <p className="text-sm text-gray-600 mt-1">Based on skill match with frontend job requirements.</p>
+          <p className="text-sm text-gray-600 mt-1">Based on skill match with job requirements.</p>
           <p className="text-green-700">{title}</p>
         </div>
+        
         <div className="mt-6 bg-white border p-6 rounded-lg shadow-md w-full max-w-2xl">
-          <h2 className="text-xl font-semibold text-green-800 mb-4">Top Job Opportunities</h2>
-          {jobs.length === 0 ? (
-            <p className="text-gray-500 text-sm">No jobs found at the moment.</p>
+          <h2 className="text-xl font-semibold text-green-800 mb-4">Top Matched Job Opportunities</h2>
+          {jobsLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+              <span className="ml-2 text-gray-500">Loading matched jobs...</span>
+            </div>
+          ) : matchedJobs.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-gray-500 text-sm mb-2">No matched jobs found at the moment.</p>
+              <p className="text-xs text-gray-400">Try updating your skills and preferences to get better matches.</p>
+            </div>
           ) : (
-            <ul className="space-y-3">
-              {jobs.map((job, index) => (
-                <li key={index} className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-green-800">{job.jobTitle}</p>
-                    <p className="text-sm text-gray-500">Salary: {job.salary_from || "Not specified"}</p>
+            <ul className="space-y-4">
+              {matchedJobs.map((job, index) => (
+                <li key={job.id || index} className="border-l-4 border-green-500 pl-4 pb-3 border-b border-gray-100 last:border-b-0">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <p className="font-medium text-green-800 text-lg">
+                        {job.job_title || job.jobTitle || job.title || 'Job Title Not Available'}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {job.company_name || job.company || 'Company Not Specified'}
+                      </p>
+                    </div>
+                    {(job.match_score || job.compatibility_score || job.score) && (
+                      <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">
+                        {Math.round((job.match_score || job.compatibility_score || job.score) * 100)}% Match
+                      </div>
+                    )}
                   </div>
-                  <span className="text-green-700 px-3 py-1 text-sm rounded">
-                    {job.job_category || "Job"}
-                  </span>
+                  <div className="flex justify-between items-center">
+                    <div className="text-sm text-gray-500">
+                      <span>Salary: {job.salary || job.salary_from || job.salary_range || "Not specified"}</span>
+                      {job.location && <span className="ml-3">📍 {job.location}</span>}
+                    </div>
+                    <span className="text-green-700 bg-green-50 px-3 py-1 text-xs rounded-full">
+                      {job.job_category || job.category || job.job_type || "Job"}
+                    </span>
+                  </div>
+                  {job.description && (
+                    <p className="text-xs text-gray-400 mt-2 line-clamp-2">
+                      {job.description.length > 100 
+                        ? `${job.description.substring(0, 100)}...` 
+                        : job.description}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
+          )}
+          {!jobsLoading && matchedJobs.length > 0 && (
+            <div className="mt-4 text-center">
+              <Link href={`/dashboard/${username}/internships`}>
+                <button className="text-green-600 hover:text-green-800 text-sm font-medium">
+                  View All Matched Jobs →
+                </button>
+              </Link>
+            </div>
           )}
         </div>
       </div>

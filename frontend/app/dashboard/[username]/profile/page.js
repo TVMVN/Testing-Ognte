@@ -138,7 +138,7 @@ const Profile = () => {
   useEffect(() => {
     fetch(`${BACKEND_URL}/api/universities/`)
       .then((res) => res.json())
-      .then(setUniversities)
+      .then(setUniversities.results)
       .catch(console.error);
   }, []);
 
