@@ -272,7 +272,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-muted py-10 px-6 md:px-20">
-     <Link href={`/dashboard/university/${username}`}> <p className = "dark:text-green-200 text-green-800 cursor-pointer">Back to Dashboard</p></Link>
+     <Link href={`/dashboard/${username}`}> <p className = "dark:text-green-200 text-green-800 cursor-pointer">Back to Dashboard</p></Link>
       <h1 className="text-4xl font-bold mb-8 dark:text-green-300 text-green-800">Settings</h1>
 
       {/* Account Information */}

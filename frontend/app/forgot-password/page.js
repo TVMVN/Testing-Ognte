@@ -8,7 +8,7 @@ const ForgotPasswordPage = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const BACKEND_URL = "http://localhost:8000/";
+  const BACKEND_URL = "http://localhost:8000";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,21 +16,45 @@ const ForgotPasswordPage = () => {
     setError('');
     setIsSubmitting(true);
 
+    // Client-side validation
     if (!email.includes('@') || username.trim().length === 0) {
       setError('Please provide a valid username and email address.');
       setIsSubmitting(false);
       return;
     }
 
-    // Simulate sending reset link
-    setTimeout(() => {
-      setMessage(
-        `If an account exists for ${username}, a reset link has been sent to ${email}.`
-      );
-      setIsSubmitting(false);
-    }, 1500);
-  };
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/auth/forgot-password/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: username.trim(),
+          email: email.trim(),
+        }),
+      });
 
+      const data = await response.json();
+
+      if (response.ok) {
+        // Success response
+        setMessage(data.message || `If an account exists for ${username}, a reset link has been sent to ${email}.`);
+        // Optionally clear the form
+        setEmail('');
+        setUsername('');
+      } else {
+        // Error response from backend
+        setError(data.error || data.message || 'An error occurred. Please try again.');
+      }
+    } catch (err) {
+      // Network or other errors
+      console.error('Forgot password error:', err);
+      setError('Unable to connect to the server. Please check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-green-100 px-4 py-8">
@@ -42,7 +66,7 @@ const ForgotPasswordPage = () => {
           </p>
         </div>
 
-        <div className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label htmlFor="username" className="block text-sm font-semibold text-green-700 mb-2">
               Username
@@ -55,6 +79,7 @@ const ForgotPasswordPage = () => {
               className="w-full px-4 py-3 rounded-lg bg-green-50 border border-green-300 text-green-900 placeholder-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
               placeholder="Enter your username"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -70,6 +95,7 @@ const ForgotPasswordPage = () => {
               className="w-full px-4 py-3 rounded-lg bg-green-50 border border-green-300 text-green-900 placeholder-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
               placeholder="you@example.com"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -86,7 +112,7 @@ const ForgotPasswordPage = () => {
           )}
 
           <button
-            onClick={handleSubmit}
+            type="submit"
             disabled={isSubmitting}
             className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 ${
               isSubmitting
@@ -96,7 +122,7 @@ const ForgotPasswordPage = () => {
           >
             {isSubmitting ? "Sending..." : "Send Reset Link"}
           </button>
-        </div>
+        </form>
 
         <div className="pt-4 border-t border-green-100">
           <div className="text-sm text-center text-gray-600">

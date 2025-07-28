@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import axios from 'axios';
 import Link from 'next/link';
-import { Search, Clock, DollarSign, Users, MapPin, ArrowLeft, ArrowRight, Eye, Building, Calendar, Hash, Briefcase, Star, Upload, X, FileText, Plus } from 'lucide-react';
+import { Search, Clock, DollarSign, Users, MapPin, ArrowLeft, ArrowRight, Eye, Building, Calendar, Hash, Briefcase, Star, Upload, X, FileText, Plus, PenTool } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_URL = 'http://localhost:8000/';
@@ -70,6 +70,13 @@ export default function ListingsPage() {
   // Quick apply duration modal state
   const [showQuickApplyModal, setShowQuickApplyModal] = useState(false);
   const [quickApplyDuration, setQuickApplyDuration] = useState('');
+
+  // Cover letter state
+  const [includeCoverLetter, setIncludeCoverLetter] = useState(false);
+  const [coverLetter, setCoverLetter] = useState('');
+  const [showCoverLetterModal, setShowCoverLetterModal] = useState(false);
+  const [quickApplyCoverLetter, setQuickApplyCoverLetter] = useState('');
+  const [quickApplyIncludeCoverLetter, setQuickApplyIncludeCoverLetter] = useState(false);
 
   // Token management functions
   const getAccessToken = () => {
@@ -267,13 +274,20 @@ export default function ListingsPage() {
 
     setApplying(true);
     try {
+      const applicationData = {
+        job_id: jobId,
+        application_type: 'automatic',
+        preferred_duration: quickApplyDuration,
+      };
+
+      // Add cover letter if provided
+      if (quickApplyIncludeCoverLetter && quickApplyCoverLetter.trim()) {
+        applicationData.cover_letter = quickApplyCoverLetter.trim();
+      }
+
       const response = await makeAuthenticatedRequest(`${API_URL}/api/applications/apply/`, {
         method: 'POST',
-        data: {
-          job_id: jobId,
-          application_type: 'automatic',
-          preferred_duration: quickApplyDuration,
-        },
+        data: applicationData,
       });
 
       if (response && response.status === 201) {
@@ -282,10 +296,13 @@ export default function ListingsPage() {
           description: "Your application has been sent to the recruiter!"
         });
         setShowQuickApplyModal(false);
+        setShowCoverLetterModal(false);
         setShowModal(false);
         setSelectedJob(null);
         setApplyingJob(null);
         setQuickApplyDuration('');
+        setQuickApplyCoverLetter('');
+        setQuickApplyIncludeCoverLetter(false);
       } else {
         toast.error('Failed to submit application. Please try again.');
       }
@@ -334,6 +351,10 @@ export default function ListingsPage() {
       if (validSkills.length > 0) {
         formData.append('additional_skills', JSON.stringify(validSkills));
       }
+      // Add cover letter if provided
+      if (includeCoverLetter && coverLetter.trim()) {
+        formData.append('cover_letter', coverLetter.trim());
+      }
 
       const response = await makeAuthenticatedRequest(`${API_URL}/api/applications/apply/`, {
         method: 'POST',
@@ -356,6 +377,8 @@ export default function ListingsPage() {
         setSelectedFile(null);
         setNewSkills(['']);
         setSelectedDuration('');
+        setCoverLetter('');
+        setIncludeCoverLetter(false);
       } else {
         toast.error('Failed to submit application. Please try again.');
       }
@@ -429,9 +452,16 @@ export default function ListingsPage() {
     setNewSkills(updated);
   };
 
-  // Currency formatting function
-  const formatSalary = (salary, currency = 'USD') => {
-    if (!salary || salary === 0 || salary === '0') return 'Unpaid';
+  // Enhanced Currency formatting function - Updated to handle unpaid cases
+  const formatSalary = (salary_from, currency = 'USD') => {
+    // Check for unpaid conditions: null, undefined, 0, '0', empty string, or NaN
+    if (!salary_from || 
+        salary_from === 0 || 
+        salary_from === '0' || 
+        salary_from === '' || 
+        isNaN(salary_from)) {
+      return 'Unpaid';
+    }
     
     // Currency symbols mapping
     const currencySymbols = {
@@ -439,12 +469,21 @@ export default function ListingsPage() {
       'euro': '€',
       'pound': '£',
       'naira': '₦',
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£',
+      'NGN': '₦',
     };
     
     const symbol = currencySymbols[currency] || currency;
-    const amount = typeof salary === 'string' ? salary : salary.toLocaleString();
+    const amount = typeof salary_from === 'string' ? parseFloat(salary_from) : salary_from;
     
-    return `${symbol}${amount}`;
+    // Double check after parsing
+    if (isNaN(amount) || amount <= 0) {
+      return 'Unpaid';
+    }
+    
+    return `${symbol}${amount.toLocaleString()}`;
   };
 
   // Location/Remote formatting
@@ -654,7 +693,7 @@ export default function ListingsPage() {
                   </div>
                 </div>
 
-                {/* Premium Salary Display */}
+                {/* Premium Salary Display - Updated styling for unpaid */}
                 <div className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 rounded-xl p-4 border border-green-500/30">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
@@ -662,10 +701,12 @@ export default function ListingsPage() {
                       <span className="text-green-300 font-semibold">Salary</span>
                     </div>
                     <div className="text-right">
-                      <div className={`font-bold text-lg ${job.salary_from === 0 || job.salary_from === '0' ? 'text-amber-400' : 'text-green-300'}`}>
+                      <div className={`font-bold text-lg ${formatSalary(job.salary_from, job.currency) === 'Unpaid' ? 'text-amber-400' : 'text-green-300'}`}>
                         {formatSalary(job.salary_from, job.currency)}
                       </div>
-                      <div className="text-xs text-gray-400">{job.payment_frequency}</div>
+                      {formatSalary(job.salary_from, job.currency) !== 'Unpaid' && (
+                        <div className="text-xs text-gray-400">{job.payment_frequency}</div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -788,7 +829,7 @@ export default function ListingsPage() {
                 </div>
 
                 <div className="space-y-6">
-                  {/* Compensation Card */}
+                  {/* Compensation Card - Updated for unpaid display */}
                   <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200 shadow-sm">
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -798,10 +839,12 @@ export default function ListingsPage() {
                     </div>
                     <div className="space-y-3">
                       <div className="text-center">
-                        <div className={`text-3xl font-black ${selectedJob.salary_from === 0 || selectedJob.salary_from === '0' ? 'text-amber-600' : 'text-green-600'}`}>
+                        <div className={`text-3xl font-black ${formatSalary(selectedJob.salary_from, selectedJob.currency) === 'Unpaid' ? 'text-amber-600' : 'text-green-600'}`}>
                           {formatSalary(selectedJob.salary_from, selectedJob.currency)}
                         </div>
-                        <div className="text-gray-600 font-medium">{selectedJob.payment_frequency}</div>
+                        {formatSalary(selectedJob.salary_from, selectedJob.currency) !== 'Unpaid' && (
+                          <div className="text-gray-600 font-medium">{selectedJob.payment_frequency}</div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -950,6 +993,8 @@ export default function ListingsPage() {
                 setShowQuickApplyModal(false);
                 setShowModal(true);
                 setQuickApplyDuration('');
+                setQuickApplyCoverLetter('');
+                setQuickApplyIncludeCoverLetter(false);
               }}
               className="absolute top-6 right-6 text-gray-400 hover:text-gray-700 text-2xl font-bold w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-all duration-200"
             >
@@ -962,7 +1007,7 @@ export default function ListingsPage() {
                   <Star className="w-8 h-8 text-white" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800">Quick Apply</h2>
-                <p className="text-gray-600">Select your preferred internship duration</p>
+                <p className="text-gray-600">Complete your application details</p>
                 <p className="text-sm text-emerald-600 font-medium">Applying to: {applyingJob.jobTitle}</p>
               </div>
 
@@ -987,6 +1032,42 @@ export default function ListingsPage() {
                   </select>
                 </div>
 
+                {/* Cover Letter Option */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-lg font-semibold text-gray-800 flex items-center space-x-2">
+                      <PenTool className="w-5 h-5 text-emerald-600" />
+                      <span>Include Cover Letter</span>
+                    </label>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={quickApplyIncludeCoverLetter}
+                        onChange={(e) => setQuickApplyIncludeCoverLetter(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+                  
+                  {quickApplyIncludeCoverLetter && (
+                    <div className="space-y-2">
+                      <textarea
+                        value={quickApplyCoverLetter}
+                        onChange={(e) => setQuickApplyCoverLetter(e.target.value)}
+                        placeholder="Write a personalized cover letter to stand out from other applicants..."
+                        className="w-full p-4 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300 bg-white shadow-sm text-gray-700 resize-none"
+                        rows={6}
+                        maxLength={1000}
+                      />
+                      <div className="flex justify-between items-center text-sm text-gray-500">
+                        <span>Optional but recommended</span>
+                        <span>{quickApplyCoverLetter.length}/1000</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex space-x-3 pt-4">
                   <button
                     type="button"
@@ -994,6 +1075,8 @@ export default function ListingsPage() {
                       setShowQuickApplyModal(false);
                       setShowModal(true);
                       setQuickApplyDuration('');
+                      setQuickApplyCoverLetter('');
+                      setQuickApplyIncludeCoverLetter(false);
                     }}
                     className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-xl font-semibold transition-all duration-300 border border-gray-300"
                   >
@@ -1020,7 +1103,7 @@ export default function ListingsPage() {
               </div>
 
               <p className="text-xs text-gray-500 text-center">
-                This will use your existing profile information along with your selected duration preference.
+                This will use your existing profile information along with your selected preferences.
               </p>
             </div>
           </div>
@@ -1039,6 +1122,8 @@ export default function ListingsPage() {
                 setSelectedFile(null);
                 setNewSkills(['']);
                 setSelectedDuration('');
+                setCoverLetter('');
+                setIncludeCoverLetter(false);
               }}
               className="absolute top-6 right-6 text-gray-400 hover:text-gray-700 text-2xl font-bold w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-all duration-200"
             >
@@ -1175,6 +1260,42 @@ export default function ListingsPage() {
                   </div>
                 </div>
 
+                {/* Cover Letter Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-lg font-semibold text-gray-800 flex items-center space-x-2">
+                      <PenTool className="w-5 h-5 text-emerald-600" />
+                      <span>Include Cover Letter</span>
+                    </label>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeCoverLetter}
+                        onChange={(e) => setIncludeCoverLetter(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+                  
+                  {includeCoverLetter && (
+                    <div className="space-y-2">
+                      <textarea
+                        value={coverLetter}
+                        onChange={(e) => setCoverLetter(e.target.value)}
+                        placeholder="Write a personalized cover letter explaining why you're the perfect fit for this role..."
+                        className="w-full p-4 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300 bg-white shadow-sm text-gray-700 resize-none"
+                        rows={6}
+                        maxLength={1000}
+                      />
+                      <div className="flex justify-between items-center text-sm text-gray-500">
+                        <span>Optional but highly recommended</span>
+                        <span>{coverLetter.length}/1000</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Submit Button */}
                 <div className="flex space-x-4 pt-6">
                   <button
@@ -1186,6 +1307,8 @@ export default function ListingsPage() {
                       setSelectedFile(null);
                       setNewSkills(['']);
                       setSelectedDuration('');
+                      setCoverLetter('');
+                      setIncludeCoverLetter(false);
                     }}
                     className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-4 px-6 rounded-2xl font-bold transition-all duration-300 border border-gray-300"
                   >
