@@ -132,7 +132,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'candidate', 'job_post',
             'resume', 'cover_letter',
-            'applied_at', 'status'
+            'applied_at', 'status', 'duration_of_internship'
         ]
     
     def get_candidate(self, obj):

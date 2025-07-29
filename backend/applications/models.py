@@ -99,6 +99,7 @@ class Application(models.Model):
     )
     cover_letter = models.TextField(blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    duration_of_internship = models.PositiveIntegerField()
 
     created_at = models.DateTimeField(auto_now_add=True)
     applied_at = models.DateTimeField(auto_now_add=True)

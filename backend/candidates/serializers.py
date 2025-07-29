@@ -23,7 +23,7 @@ class ApplicationCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Application
-        fields = ['resume', 'cover_letter']
+        fields = ['resume', 'cover_letter', 'duration_of_internship']
 
 
     def _get_candidate(self):
