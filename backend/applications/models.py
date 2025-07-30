@@ -105,6 +105,8 @@ class Application(models.Model):
     applied_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    offer_response = models.CharField(max_length=20, choices=[('none', 'None'), ('accepted', 'Accepted'), ('denied', 'Denied')], default='none')
+
     class Meta:
         unique_together = ('candidate', 'job_post')
         ordering = ['-applied_at']

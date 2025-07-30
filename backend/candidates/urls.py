@@ -2,9 +2,7 @@ from django.urls import path
 from .auth_views import CandidateProfileView, UniversityCandidatesListView
 from . import views
 from django.urls import path
-from .views import CandidateDashboardMatchesView
-from .views import CandidateStatsView
-from .views import ToggleUniversityViewPermission
+from .views import *
 
 urlpatterns = [
     path('profile/', CandidateProfileView.as_view(), name='candidate-profile'),
@@ -16,5 +14,9 @@ urlpatterns = [
 
     path('dashboard/matches/', CandidateDashboardMatchesView.as_view(), name='candidate-dashboard-matches'),
     path('dashboard/stats/', CandidateStatsView.as_view(), name='candidate-dashboard-stats'),
+
+
+    path('applications/<int:pk>/accept-offer/', CandidateAcceptOfferView.as_view(), name='accept-offer'),
+    path('applications/<int:pk>/deny-offer/', CandidateDenyOfferView.as_view(), name='deny-offer'),
 ]
 

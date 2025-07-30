@@ -14,8 +14,8 @@ from applications.models import Application
 from matching.models import CandidateJobMatch
 from candidates.models import Candidate
 from universities.models import University
-from django.db.models import Count, Avg
-
+from django.db.models import Count, Avg, Q
+from collections import defaultdict
 
 
 class UniversityProfileView(generics.RetrieveUpdateAPIView):
@@ -89,3 +89,79 @@ class UniversityDashboardView(APIView):
             "top_industries": top_industries
         })
 
+class UniversityStudentProgressView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        university = getattr(user, 'university_profile', None)
+
+        if not university:
+            return Response({"detail": "Not a university user."}, status=403)
+
+        # Filter candidates who allowed visibility and are linked to this university
+        candidates = Candidate.objects.filter(
+            can_university_view=True,
+            university=university
+        )
+
+        # Optional filters
+        course = request.query_params.get('course')
+        year = request.query_params.get('year')
+
+        if course:
+            candidates = candidates.filter(course__iexact=course)
+        if year:
+            candidates = candidates.filter(year=year)
+
+        total = candidates.count()
+        with_resume = candidates.exclude(Q(resume='') | Q(resume__isnull=True)).count()
+        with_skills = candidates.exclude(Q(skills='') | Q(skills__isnull=True)).count()
+        seeking_jobs = candidates.filter(seeking_job=True).count()
+
+        applications = Application.objects.filter(candidate__in=candidates)
+
+        accepted = applications.filter(status='accepted').count()
+        rejected = applications.filter(status='rejected').count()
+        no_response = applications.filter(status='offered').count()
+
+        matched_candidate_ids = applications.values_list('candidate_id', flat=True).distinct()
+        matched = len(matched_candidate_ids)
+        unmatched = total - matched
+
+        # Breakdown per student
+        latest_status = defaultdict(lambda: "none")  # default status if no application
+        status_priority = ['accepted', 'rejected', 'offered']  # in order of significance
+
+        # Get latest status per candidate
+        for app in applications.order_by('candidate_id', '-applied_at'):
+            cid = app.candidate_id
+            if latest_status[cid] == "none":
+                latest_status[cid] = app.status
+
+        student_breakdown = []
+        for c in candidates:
+            student_breakdown.append({
+                "name": c.user.get_full_name(),
+                "email": c.user.email,
+                "resume": "yes" if c.resume else "no",
+                "skills": c.skills or "none",
+                "seeking_job": c.seeking_job,
+                "matched": c.id in matched_candidate_ids,
+                "job_status": latest_status[c.id]
+            })
+
+        return Response({
+            "summary": {
+                "total_students_visible": total,
+                "accepted_jobs": accepted,
+                "rejected_offers": rejected,
+                "no_response_offers": no_response,
+                "still_seeking_jobs": seeking_jobs,
+                "with_resume": with_resume,
+                "with_skills": with_skills,
+                "matched": matched,
+                "unmatched": unmatched,
+            },
+            "breakdown": student_breakdown
+        })

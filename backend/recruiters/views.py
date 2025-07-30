@@ -4,14 +4,14 @@ from django.db.models import Count
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-
+from django.template.loader import render_to_string
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
-
+from django.conf import settings
 from .models import Recruiter
 from .permissions import IsRecruiterUser
 from applications.models import JobPost, Application
@@ -23,6 +23,14 @@ from applications.serializers import (
 )
 from matching.models import CandidateJobMatch
 from matching.serializers import CandidateJobMatchSerializer
+from rest_framework import generics, status
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.core.mail import send_mail
+from django.shortcuts import get_object_or_404
+
+from applications.models import JobPost, Application
+from applications.serializers import JobPostingCreateSerializer, ApplicationSerializer
 
 # -------------------------
 # Unified JobPost ViewSet
@@ -201,3 +209,91 @@ class AllRecruiterApplicationsView(APIView):
         applications = Application.objects.filter(job_post__in=job_posts).select_related('candidate', 'job_post')
         serializer = ApplicationSerializer(applications, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class RecruiterEditJobPostView(generics.RetrieveUpdateAPIView):
+    queryset = JobPost.objects.all()
+    serializer_class = JobPostingCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        try:
+            recruiter = self.request.user.recruiter_profile
+        except AttributeError:
+            return JobPost.objects.none()
+        return JobPost.objects.filter(recruiter=recruiter)
+
+
+class AcceptApplicationView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    
+class AcceptApplicationView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            recruiter = request.user.recruiter_profile
+        except:
+            return Response({'detail': 'User is not a recruiter.'}, status=403)
+
+        application = get_object_or_404(Application, id=pk, job_post__recruiter=recruiter)
+
+        if application.status == 'accepted':
+            return Response({'detail': 'Application already accepted.'}, status=400)
+
+        # Update application status
+        application.status = 'accepted'
+        application.save()
+
+        # Prepare email
+        candidate_email = application.candidate.user.email
+        job_title = application.job_post.title
+        accept_link = f"{settings.FRONTEND_URL}/api/candidates/applications/{application.id}/accept-offer/"
+        deny_link = f"{settings.FRONTEND_URL}/api/candidates/applications/{application.id}/deny-offer/"
+
+        html_message = f"""
+        <h2>You've been offered a job: {job_title}</h2>
+        <p>Click below to accept or decline the offer:</p>
+        <p><a href="{accept_link}" style="padding:10px 20px; background:green; color:white; text-decoration:none;">Accept Offer</a></p>
+        <p><a href="{deny_link}" style="padding:10px 20px; background:red; color:white; text-decoration:none;">Deny Offer</a></p>
+        """
+
+        send_mail(
+            subject=f"Job Offer for {job_title}",
+            message="You've been offered a job.",
+            html_message=html_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[candidate_email],
+        )
+
+        return Response({'detail': 'Application accepted and job offer sent to candidate.'})
+
+# 3. Reject Application
+class RejectApplicationView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from applications.models import Application
+
+class RejectApplicationView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            recruiter = request.user.recruiter_profile
+        except:
+            return Response({'detail': 'User is not a recruiter.'}, status=403)
+
+        application = get_object_or_404(Application, id=pk, job_post__recruiter=recruiter)
+
+        if application.status == 'rejected':
+            return Response({'detail': 'Application is already rejected.'}, status=400)
+
+        application.status = 'rejected'
+        application.save()
+
+        return Response({'detail': 'Application rejected successfully.'})
