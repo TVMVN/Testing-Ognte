@@ -8,66 +8,48 @@ import { Textarea } from "@/components/ui/textarea";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
+
 export default function ResumeAnalyzer() {
   const [resumeText, setResumeText] = useState("");
-  const [analysis, setAnalysis] = useState("");
+  const [skills, setSkills] = useState([]);
+  const [score, setScore] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const params = useParams()
-  const username = params.username // Fallback username if not provided
-  // Replace with your API and user identifier logic
-  const USER_ID = "1";
-  const FETCH_API = `https://your-backend.com/api/users/${USER_ID}/resume`;
-  const ANALYZE_API = `https://your-backend.com/api/analyze`;
+  const params = useParams();
+  const username = params.username;
+  // Update to your backend API base URL
+  const BACKEND_API = "http://localhost:8000/api/candidates/profile/";
+
 
   useEffect(() => {
-    const fetchResume = async () => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      setError("");
       try {
-        const res = await fetch(FETCH_API);
+        const res = await fetch(BACKEND_API, {
+          credentials: "include",
+        });
         const data = await res.json();
-
-        if (!res.ok) throw new Error("Failed to fetch resume");
-
-        // Assuming API returns resume text
-        setResumeText(data.resumeText || "");
+        if (!res.ok) throw new Error("Failed to fetch profile");
+        setResumeText(data.resume || "");
+        setSkills(data.skills || []);
+        setScore(data.resume_score ?? null);
       } catch (err) {
-        setError("Error fetching resume. Please try again.");
+        setError("Error fetching profile. Please try again.");
+      } finally {
+        setLoading(false);
       }
     };
-
-    fetchResume();
+    fetchProfile();
   }, []);
 
-  const handleAnalyze = async () => {
-    if (!resumeText.trim()) return;
 
-    setLoading(true);
-    setError("");
-    setAnalysis("");
-
-    try {
-      const res = await fetch(ANALYZE_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resume: resumeText }),
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message || "Analysis failed");
-
-      setAnalysis(result.analysis || "No analysis available.");
-    } catch (err) {
-      setError("Error analyzing resume. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // No manual analysis needed, analysis is automatic on upload
 
   return (
     <div className="min-h-screen bg-green-100 text-green-400 p-8">
       <div className="max-w-4xl mx-auto">
-        {/* <div className="flex "> */}
         <div className="">
           <h1 className="text-3xl font-bold mb-6 text-green-800">
             <FileText className="inline-block mr-2" />
@@ -79,11 +61,9 @@ export default function ResumeAnalyzer() {
         </div>
         <div className="flex flex-row w-[50%] gap-4 items-center text-green-500 cursor-pointer hover:text-green-700 transition">
           <Link href={`/dashboard/${username}`}>
-            {/* <ArrowLeft className="inline-block mr-2" /> */}
             <p className="text-green-400">Back To Dashboard</p>
           </Link>
         </div>
-        {/* </div> */}
 
         <Card className="bg-white shadow-2xl ">
           <CardContent className="p-6 space-y-6">
@@ -100,41 +80,32 @@ export default function ResumeAnalyzer() {
               <Textarea
                 id="resume"
                 value={resumeText}
-                onChange={(e) => setResumeText(e.target.value)}
+                readOnly
                 rows={10}
                 className="bg-green-100 resize-none text-green-900 border-green-500 placeholder-green-600"
                 placeholder="No resume found..."
               />
             </div>
 
-            <Button
-              onClick={handleAnalyze}
-              className="bg-green-800 hover:bg-green-500 text-black w-full"
-              disabled={loading || !resumeText.trim()}
-            >
+            <div className="mt-6">
+              <h2 className="text-xl font-semibold text-green-700 mb-2">AI Analysis Result</h2>
               {loading ? (
                 <span className="flex items-center justify-center">
-                  <Loader2 className="animate-spin mr-2 h-4 w-4" /> Analyzing...
+                  <Loader2 className="animate-spin mr-2 h-4 w-4" /> Loading...
                 </span>
               ) : (
-                "Analyze Resume"
+                <>
+                  <div className="mb-2">
+                    <span className="font-bold">Score:</span> {score !== null ? score : 'N/A'}
+                  </div>
+                  <div>
+                    <span className="font-bold">Skills:</span> {skills.length > 0 ? skills.join(', ') : 'N/A'}
+                  </div>
+                </>
               )}
-            </Button>
+            </div>
           </CardContent>
         </Card>
-
-        {analysis && !loading && (
-          <Card className="mt-8 bg-zinc-800 border-zinc-600">
-            <CardContent className="p-6">
-              <h2 className="text-2xl font-semibold mb-4 text-green-300">
-                Analysis Result
-              </h2>
-              <pre className="whitespace-pre-wrap text-green-400 bg-black p-4 rounded-md border border-green-500">
-                {analysis}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );
