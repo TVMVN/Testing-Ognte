@@ -1,20 +1,25 @@
-
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
 
 from .models import CandidateJobMatch
 from .serializers import CandidateJobMatchSerializer
-from candidates.permissions import IsCandidateUser
-from recruiters.permissions import IsRecruiterUser
+from .utils import (
+    calculate_skill_score,
+    calculate_total_score,
+    match_candidate_to_jobs,
+    match_jobpost_to_candidates
+)
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser
 from candidates.models import Candidate
 from applications.models import JobPost
-from matching.models import CandidateJobMatch
-from matching.utils import calculate_skill_score, calculate_total_score
+from candidates.serializers import CandidateSerializer
+from applications.serializers import JobPostSerializer
+from candidates.permissions import IsCandidateUser
+from recruiters.permissions import IsRecruiterUser
+from rest_framework.permissions import IsAdminUser
+
 
 class RunMatchingEngine(APIView):
     permission_classes = [IsAdminUser]
@@ -22,7 +27,6 @@ class RunMatchingEngine(APIView):
     def post(self, request):
         candidates = Candidate.objects.all()
         job_posts = JobPost.active_jobs.all()
-
         match_count = 0
 
         for candidate in candidates:
@@ -45,7 +49,7 @@ class RunMatchingEngine(APIView):
                     job_post=job,
                     professional_title_match=professional_title_match,
                     skill_match_score=skill_score,
-                    degree_match=True,  # Set proper logic if needed
+                    degree_match=True,  # TODO: Add real logic if needed
                     location_match=location_match,
                     duration_match=duration_match,
                     industry_match=industry_match,
@@ -56,8 +60,6 @@ class RunMatchingEngine(APIView):
                 match_count += 1
 
         return Response({"detail": f"Matching completed. {match_count} matches created."})
-
-
 
 
 class CandidateMatchListView(generics.ListAPIView):
@@ -76,3 +78,48 @@ class RecruiterTopMatchesView(generics.ListAPIView):
         recruiter = self.request.user.recruiter
         return CandidateJobMatch.objects.filter(job_post__recruiter=recruiter).order_by('-total_score')
 
+
+# 🔁 New View: Return jobs matched to a candidate
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated, IsCandidateUser])
+def candidate_job_matches(request, candidate_id):
+    try:
+        candidate = Candidate.objects.get(pk=candidate_id, user=request.user)
+    except Candidate.DoesNotExist:
+        return Response({"error": "Candidate not found or unauthorized."}, status=status.HTTP_404_NOT_FOUND)
+
+    matches = match_candidate_to_jobs(candidate)
+    limit = int(request.query_params.get("limit", 5))
+    offset = int(request.query_params.get("offset", 0))
+
+    serializer = JobPostSerializer(matches[offset:offset+limit], many=True)
+    return Response({
+        "total_matches": len(matches),
+        "matches": serializer.data,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + limit < len(matches)
+    })
+
+
+# 🔁 New View: Return candidates matched to a job
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated, IsRecruiterUser])
+def job_candidate_matches(request, job_id):
+    try:
+        job = JobPost.objects.get(pk=job_id, recruiter=request.user.recruiter)
+    except JobPost.DoesNotExist:
+        return Response({"error": "Job not found or unauthorized."}, status=status.HTTP_404_NOT_FOUND)
+
+    matches = match_jobpost_to_candidates(job)
+    limit = int(request.query_params.get("limit", 5))
+    offset = int(request.query_params.get("offset", 0))
+
+    serializer = CandidateSerializer(matches[offset:offset+limit], many=True)
+    return Response({
+        "total_matches": len(matches),
+        "matches": serializer.data,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + limit < len(matches)
+    })

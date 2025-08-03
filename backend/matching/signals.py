@@ -6,37 +6,50 @@ from .models import CandidateJobMatch
 from .utils import calculate_skill_score, calculate_total_score
 
 @receiver(post_save, sender=Candidate)
+def auto_match_on_candidate_save(sender, instance, **kwargs):
+    candidate = instance
+    jobs = JobPost.active_jobs.all()
+
+    for job in jobs:
+        if CandidateJobMatch.objects.filter(candidate=candidate, job_post=job).exists():
+            continue
+        _create_match(candidate, job)
+
+
 @receiver(post_save, sender=JobPost)
-def run_auto_matching(sender, instance, **kwargs):
+def auto_match_on_jobpost_save(sender, instance, **kwargs):
+    job = instance
+    if not job.is_active:
+        return
+
     candidates = Candidate.objects.all()
-    jobs = JobPost.objects.filter(is_active=True)
-
     for candidate in candidates:
-        for job in jobs:
-            # Prevent duplicates
-            if CandidateJobMatch.objects.filter(candidate=candidate, job_post=job).exists():
-                continue
+        if CandidateJobMatch.objects.filter(candidate=candidate, job_post=job).exists():
+            continue
+        _create_match(candidate, job)
 
-            # Match logic
-            professional_title_match = candidate.professional_title.strip().lower() == job.title.strip().lower()
-            skill_score = calculate_skill_score(candidate.skills, job.required_skills)
-            degree_match = ('computer' in candidate.degree.lower() and 'tech' in job.industry.lower())
-            location_match = (candidate.city.lower() == job.location.lower())
-            duration_match = str(candidate.duration_of_internship) == str(job.duration_of_internship)
-            industry_match = ('tech' in job.industry.lower() and 'computer' in candidate.degree.lower())
-            has_resume = bool(candidate.resume)
 
-            # Create and save match
-            match = CandidateJobMatch(
-                candidate=candidate,
-                job_post=job,
-                professional_title_match=professional_title_match,
-                skill_match_score=skill_score,
-                degree_match=degree_match,
-                location_match=location_match,
-                duration_match=duration_match,
-                industry_match=industry_match,
-                has_resume=has_resume,
-            )
-            calculate_total_score(match)
-            match.save()
+def _create_match(candidate, job):
+    professional_title_match = candidate.professional_title.strip().lower() == job.title.strip().lower()
+    skill_score = calculate_skill_score(candidate.skills, job.required_skills)
+    location_match = candidate.city.strip().lower() == job.location.strip().lower()
+    duration_match = str(candidate.duration_of_internship) == str(job.duration_of_internship)
+    industry_match = (
+        candidate.university and 
+        candidate.university.industry.strip().lower() == job.industry.strip().lower()
+    )
+    has_resume = bool(candidate.resume)
+
+    match = CandidateJobMatch(
+        candidate=candidate,
+        job_post=job,
+        professional_title_match=professional_title_match,
+        skill_match_score=skill_score,
+        degree_match=True,  # Placeholder, can implement logic later
+        location_match=location_match,
+        duration_match=duration_match,
+        industry_match=industry_match,
+        has_resume=has_resume,
+    )
+    calculate_total_score(match)
+    match.save()
