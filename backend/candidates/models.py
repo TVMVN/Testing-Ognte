@@ -17,6 +17,7 @@ class Candidate(models.Model):
     profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)
     date_of_birth = models.DateField(null=True, blank=True)
     skills = models.JSONField(default=list, blank=True)
+    resume_score = models.IntegerField(default=0, blank=True)
     location = models.CharField(max_length=100)
     can_university_view = models.BooleanField(default=True)
     duration_of_internship = models.IntegerField()
