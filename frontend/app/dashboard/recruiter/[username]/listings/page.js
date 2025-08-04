@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {toast} from "sonner";
 import Link from 'next/link';
-import { Search, Clock, DollarSign, Users, MapPin, ArrowLeft, ArrowRight, Trash2, Eye, Building, Calendar, Hash, Briefcase, Star } from 'lucide-react';
+import { Search, Clock, DollarSign, Users, MapPin, ArrowLeft, ArrowRight, Trash2, Eye, Building, Calendar, Hash, Briefcase, Star, Edit3, Power, PowerOff } from 'lucide-react';
 
 const BACKEND_URL = 'http://localhost:8000';
 
@@ -191,9 +191,53 @@ export default function ListingsPage() {
       industry: job.industry || 'Technology',
       payment_frequency: job.salary?.payment_frequency || 'Monthly',
       duration: job.duration_of_internship || 'Not specified',
+      is_active: job.is_active !== undefined ? job.is_active : true, // Add active status
     }));
     setJobs(jobsData);
     setLoading(false);
+  };
+
+  // Toggle job active status
+  const toggleJobStatus = async (jobId, currentStatus) => {
+    const response = await makeAuthenticatedRequest(
+      `${BACKEND_URL}/api/recruiters/jobs/${jobId}/toggle-active/`,
+      { method: 'POST' },
+      router
+    );
+    
+    if (response && response.ok) {
+      // Update the job status in the local state
+      setJobs(jobs.map(job => 
+        job.id === jobId 
+          ? { ...job, is_active: !currentStatus }
+          : job
+      ));
+      
+      // Update selected job if it's the one being toggled
+      if (selectedJob && selectedJob.id === jobId) {
+        setSelectedJob({ ...selectedJob, is_active: !currentStatus });
+      }
+
+      toast.success(
+        `Job ${!currentStatus ? 'activated' : 'deactivated'} successfully!`,
+        {
+          duration: 4000,
+          description: `Your job posting is now ${!currentStatus ? 'visible to candidates' : 'hidden from candidates'}.`
+        }
+      );
+    } else {
+      toast.error('Failed to update job status', {
+        duration: 4000,
+        description: 'Please try again later.'
+      });
+      ErrorHandler.showErrorToast({ response }, 'Toggling job status');
+    }
+  };
+
+  // Handle edit job - redirect to edit page using the Django URL
+  const handleEditJob = (job) => {
+    // Navigate to the edit page using the Django edit endpoint URL pattern
+    router.push(`/dashboard/recruiter/${username}/edit-job/${job.id}`);
   };
 
   // Delete job
@@ -264,7 +308,6 @@ export default function ListingsPage() {
 
       {/* Sophisticated Navbar */}
       <nav className="relative px-8 h-20 w-full flex justify-between items-center sticky top-0 z-50 bg-black  shadow-lg border-b border-gray-100">
-        {/* <div className="absolute inset-0 bg-gradient-to-r from-emerald-50/50 via-transparent to-green-50/50"></div> */}
         
         <Link href="/" className="group relative z-10">
           <div className="flex items-center space-x-2">
@@ -343,12 +386,15 @@ export default function ListingsPage() {
           filteredJobs.map((job, index) => (
             <div
               key={job.id}
-              className="group relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all duration-500 overflow-hidden border border-gray-700/50 hover:border-emerald-500/50 transform hover:-translate-y-2 hover:rotate-1"
+              className={`group relative ${job.is_active ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' : 'bg-gradient-to-br from-gray-600 via-gray-500 to-gray-600 opacity-75'} rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all duration-500 overflow-hidden border ${job.is_active ? 'border-gray-700/50 hover:border-emerald-500/50' : 'border-gray-500/50'} transform hover:-translate-y-2 hover:rotate-1`}
               style={{
                 animationDelay: `${index * 100}ms`,
                 animation: 'fadeInUp 0.6s ease-out forwards'
               }}
             >
+              {/* Status indicator */}
+              <div className={`absolute top-4 right-4 w-3 h-3 ${job.is_active ? 'bg-green-500' : 'bg-red-500'} rounded-full ${job.is_active ? 'animate-pulse' : ''}`}></div>
+              
               {/* Animated background gradient */}
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/10 via-transparent to-green-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               
@@ -362,13 +408,11 @@ export default function ListingsPage() {
                     <div className="flex-1 space-y-2">
                       <h3 className="text-xl font-bold text-white group-hover:text-emerald-300 transition-colors duration-300 leading-tight line-clamp-2">
                         {job.jobTitle}
+                        {!job.is_active && <span className="text-red-400 text-sm ml-2">(Inactive)</span>}
                       </h3>
                       <div className="flex items-center space-x-2 text-gray-400 text-sm">
                         <Clock className="w-4 h-4" />
                         <span>{timeAgo(job.createdAt)}</span>
-                        {/* <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
-                        <Star className="w-4 h-4 text-yellow-500" />
-                        <span className="text-yellow-400">Premium</span> */}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
@@ -450,20 +494,45 @@ export default function ListingsPage() {
                   </p>
                 </div>
 
-                {/* Premium Action Button */}
-                <button
-                  onClick={() => setSelectedJob(job)}
-                  className="w-full mt-4 bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 hover:from-emerald-700 hover:via-green-700 hover:to-emerald-800 text-white text-sm font-bold rounded-2xl py-4 px-4 shadow-lg hover:shadow-2xl transition-all duration-300 flex items-center justify-center space-x-3 group-hover:scale-105 transform"
-                  aria-label={`View details for ${job.jobTitle}`}
-                >
-                  <Eye className="w-4 h-4" />
-                  <span>View Full Details</span>
-                  <ArrowLeft className="w-4 h-4 rotate-180 group-hover:translate-x-1 transition-transform duration-300" />
-                </button>
+                {/* Action Buttons */}
+                <div className="flex flex-col gap-3 mt-4">
+                  {/* Toggle and Edit buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => toggleJobStatus(job.id, job.is_active)}
+                      className={`flex-1 ${job.is_active 
+                        ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800' 
+                        : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800'
+                      } text-white text-sm font-bold rounded-2xl py-3 px-3 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center space-x-2 group-hover:scale-105 transform`}
+                      title={job.is_active ? 'Deactivate Job' : 'Activate Job'}
+                    >
+                      {job.is_active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                      <span>{job.is_active ? 'Deactivate' : 'Activate'}</span>
+                    </button>
+                    <button
+                      onClick={() => handleEditJob(job)}
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-sm font-bold rounded-2xl py-3 px-3 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center space-x-2 group-hover:scale-105 transform"
+                      title="Edit Job"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      <span>Edit</span>
+                    </button>
+                  </div>
+
+                  {/* View Details Button */}
+                  <button
+                    onClick={() => setSelectedJob(job)}
+                    className="w-full bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 hover:from-emerald-700 hover:via-green-700 hover:to-emerald-800 text-white text-sm font-bold rounded-2xl py-4 px-4 shadow-lg hover:shadow-2xl transition-all duration-300 flex items-center justify-center space-x-3 group-hover:scale-105 transform"
+                    aria-label={`View details for ${job.jobTitle}`}
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>View Full Details</span>
+                    <ArrowLeft className="w-4 h-4 rotate-180 group-hover:translate-x-1 transition-transform duration-300" />
+                  </button>
+                </div>
               </div>
 
               {/* Decorative elements */}
-              <div className="absolute top-4 right-4 w-3 h-3 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full group-hover:scale-150 transition-transform duration-300"></div>
               <div className="absolute bottom-4 left-4 w-2 h-2 bg-gradient-to-br from-green-500 to-emerald-400 rounded-full group-hover:scale-125 transition-transform duration-300"></div>
               <div className="absolute top-1/2 left-0 w-1 h-8 bg-gradient-to-b from-emerald-500 to-green-600 opacity-50 group-hover:opacity-100 transition-opacity duration-300"></div>
             </div>
@@ -497,19 +566,24 @@ export default function ListingsPage() {
                 <div className="relative p-6 space-y-4">
                   <div className="flex items-start justify-between gap-6">
                     <div className="flex-1 space-y-3">
-                      <h2 id="job-modal-title" className="text-4xl font-black bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                        {selectedJob.jobTitle}
-                      </h2>
+                      <div className="flex items-center space-x-3">
+                        <h2 id="job-modal-title" className="text-4xl font-black bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                          {selectedJob.jobTitle}
+                        </h2>
+                        <div className={`w-3 h-3 ${selectedJob.is_active ? 'bg-green-500' : 'bg-red-500'} rounded-full ${selectedJob.is_active ? 'animate-pulse' : ''}`}></div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          selectedJob.is_active 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {selectedJob.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
                       <div className="flex items-center space-x-4 text-gray-600">
                         <div className="flex items-center space-x-2">
                           <Clock className="w-5 h-5" />
                           <span className="font-medium">Posted {timeAgo(selectedJob.createdAt)}</span>
                         </div>
-                        {/* <div className="w-1 h-1 bg-gray-400 rounded-full"></div> */}
-                        {/* <div className="flex items-center space-x-1">
-                          <Star className="w-5 h-5 text-yellow-500" />
-                          <span className="text-yellow-600 font-semibold">Premium Listing</span>
-                        </div> */}
                       </div>
                     </div>
                     <div className="flex flex-col gap-3">
@@ -608,6 +682,19 @@ export default function ListingsPage() {
                         </div>
                         <span className="text-gray-900 font-bold text-sm">{selectedJob.industry}</span>
                       </div>
+                      <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-200">
+                        <div className="flex items-center space-x-3">
+                          {selectedJob.is_active ? (
+                            <Power className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <PowerOff className="w-5 h-5 text-red-600" />
+                          )}
+                          <span className="text-gray-700 font-medium">Status</span>
+                        </div>
+                        <span className={`font-bold text-sm ${selectedJob.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                          {selectedJob.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -630,13 +717,37 @@ export default function ListingsPage() {
 
               {/* Premium Action Buttons */}
               <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-8 border-t border-gray-200">
-                <button
-                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 px-8 py-4 rounded-2xl shadow-xl font-bold transition-all duration-300 text-white flex items-center space-x-3 hover:shadow-2xl transform hover:-translate-y-1"
-                  onClick={() => deleteJob(selectedJob.id)}
-                >
-                  <Trash2 className="w-5 h-5" />
-                  <span>Delete Job Listing</span>
-                </button>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {/* Toggle Status Button */}
+                  <button
+                    onClick={() => toggleJobStatus(selectedJob.id, selectedJob.is_active)}
+                    className={`${selectedJob.is_active 
+                      ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800' 
+                      : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800'
+                    } px-8 py-4 rounded-2xl shadow-xl font-bold transition-all duration-300 text-white flex items-center space-x-3 hover:shadow-2xl transform hover:-translate-y-1`}
+                  >
+                    {selectedJob.is_active ? <PowerOff className="w-5 h-5" /> : <Power className="w-5 h-5" />}
+                    <span>{selectedJob.is_active ? 'Deactivate Job' : 'Activate Job'}</span>
+                  </button>
+
+                  {/* Edit Button */}
+                  <button
+                    onClick={() => handleEditJob(selectedJob)}
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-8 py-4 rounded-2xl shadow-xl font-bold transition-all duration-300 text-white flex items-center space-x-3 hover:shadow-2xl transform hover:-translate-y-1"
+                  >
+                    <Edit3 className="w-5 h-5" />
+                    <span>Edit Job</span>
+                  </button>
+
+                  {/* Delete Button */}
+                  <button
+                    className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 px-8 py-4 rounded-2xl shadow-xl font-bold transition-all duration-300 text-white flex items-center space-x-3 hover:shadow-2xl transform hover:-translate-y-1"
+                    onClick={() => deleteJob(selectedJob.id)}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    <span>Delete Job Listing</span>
+                  </button>
+                </div>
 
                 <div className="flex space-x-4">
                   <button

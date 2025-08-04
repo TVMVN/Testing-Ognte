@@ -285,7 +285,7 @@ export default function ListingsPage() {
         applicationData.cover_letter = quickApplyCoverLetter.trim();
       }
 
-      const response = await makeAuthenticatedRequest(`${API_URL}/api/applications/apply/`, {
+      const response = await makeAuthenticatedRequest(`${API_URL}/api/candidates/apply/${jobId}/`, {
         method: 'POST',
         data: applicationData,
       });
@@ -309,7 +309,7 @@ export default function ListingsPage() {
     } catch (error) {
       console.error('Error applying to job:', error);
       if (error.response?.status === 400) {
-        toast.error(error.response.data?.message || 'You may have already applied to this job.');
+        toast.error(error.response.data?.message || "There's been an error from our end, contact the supprt team.");
       } else if (error.response?.status === 401) {
         toast.error('Authentication failed. Please log in again.');
         clearTokens();
