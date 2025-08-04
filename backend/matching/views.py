@@ -14,8 +14,8 @@ from .utils import (
 
 from candidates.models import Candidate
 from applications.models import JobPost
-from candidates.serializers import CandidateSerializer
-from applications.serializers import JobPostSerializer
+from candidates.auth_serializers import CandidateSerializer
+from applications.serializers import JobSerializer
 from candidates.permissions import IsCandidateUser
 from recruiters.permissions import IsRecruiterUser
 from rest_framework.permissions import IsAdminUser
@@ -92,7 +92,7 @@ def candidate_job_matches(request, candidate_id):
     limit = int(request.query_params.get("limit", 5))
     offset = int(request.query_params.get("offset", 0))
 
-    serializer = JobPostSerializer(matches[offset:offset+limit], many=True)
+    serializer = JobSerializer(matches[offset:offset+limit], many=True)
     return Response({
         "total_matches": len(matches),
         "matches": serializer.data,
