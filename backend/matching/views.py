@@ -20,6 +20,7 @@ from candidates.permissions import IsCandidateUser
 from recruiters.permissions import IsRecruiterUser
 from rest_framework.permissions import IsAdminUser
 
+from applications.models import JobPost, Application  # Make sure Application is imported
 
 class RunMatchingEngine(APIView):
     permission_classes = [IsAdminUser]
@@ -34,13 +35,19 @@ class RunMatchingEngine(APIView):
                 if CandidateJobMatch.objects.filter(candidate=candidate, job_post=job).exists():
                     continue
 
+                # Get the candidate's application for this job (if any)
+                application = Application.objects.filter(candidate=candidate, job_post=job).first()
+                if application:
+                    duration_match = application.duration_of_internship == job.duration_of_internship
+                else:
+                    duration_match = False  # or default to True if optional
+
                 professional_title_match = candidate.professional_title.strip().lower() == job.title.strip().lower()
                 skill_score = calculate_skill_score(candidate.skills, job.required_skills)
-                duration_match = candidate.duration_of_internship == job.duration_of_internship
                 location_match = candidate.city.strip().lower() == job.location.strip().lower()
                 industry_match = (
-                    candidate.university and 
-                    candidate.university.industry.lower() == job.industry.lower()
+                    candidate.degree and 
+                    candidate.professional_title.lower() == job.industry.lower()
                 )
                 has_resume = bool(candidate.resume)
 
@@ -49,7 +56,7 @@ class RunMatchingEngine(APIView):
                     job_post=job,
                     professional_title_match=professional_title_match,
                     skill_match_score=skill_score,
-                    degree_match=True,  # TODO: Add real logic if needed
+                    degree_match=True,  # TODO: Replace with real logic
                     location_match=location_match,
                     duration_match=duration_match,
                     industry_match=industry_match,
@@ -60,6 +67,8 @@ class RunMatchingEngine(APIView):
                 match_count += 1
 
         return Response({"detail": f"Matching completed. {match_count} matches created."})
+
+
 
 
 class CandidateMatchListView(generics.ListAPIView):

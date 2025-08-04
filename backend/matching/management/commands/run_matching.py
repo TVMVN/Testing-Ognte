@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from candidates.models import Candidate
-from applications.models import JobPost
+from applications.models import JobPost, Application
 from matching.models import CandidateJobMatch
 from matching.utils import calculate_skill_score, calculate_total_score
 
@@ -18,6 +18,13 @@ class Command(BaseCommand):
                 if CandidateJobMatch.objects.filter(candidate=candidate, job_post=job).exists():
                     continue
 
+                # Try to find an application from the candidate to this job
+                application = Application.objects.filter(candidate=candidate, job_post=job).first()
+                if application:
+                    duration_match = str(application.duration_of_internship) == str(job.duration_of_internship)
+                else:
+                    duration_match = False  # or True, depending on your fallback logic
+
                 match = CandidateJobMatch(
                     candidate=candidate,
                     job_post=job,
@@ -25,7 +32,7 @@ class Command(BaseCommand):
                     skill_match_score=calculate_skill_score(candidate.skills, job.required_skills),
                     degree_match=('computer' in candidate.degree.lower() and 'tech' in job.industry.lower()),
                     location_match=(candidate.city.lower() == job.location.lower()),
-                    duration_match=(str(candidate.duration_of_internship) == str(job.duration_of_internship)),
+                    duration_match=duration_match,
                     industry_match=('tech' in job.industry.lower() and 'computer' in candidate.degree.lower()),
                     has_resume=bool(candidate.resume),
                 )
