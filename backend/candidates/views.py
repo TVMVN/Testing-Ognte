@@ -185,3 +185,18 @@ class CandidateDenyOfferView(generics.GenericAPIView):
         )
 
         return Response({'detail': 'Offer denied. Recruiter notified.'})
+
+
+class ResumeAnalysisView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        candidate = getattr(request.user, 'candidate_profile', None)
+        if not candidate:
+            return Response({"error": "Candidate profile not found."}, status=404)
+
+        serializer = CandidateProfileSerializer(candidate)
+        return Response({
+            "skills": serializer.data.get("skills", []),
+            "resume_score": serializer.data.get("resume_score", 0)
+        })

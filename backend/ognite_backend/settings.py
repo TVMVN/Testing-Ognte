@@ -48,6 +48,8 @@ REST_FRAMEWORK = {
         "anon": "1000/hour",
     },
 
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -64,6 +66,12 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'My API',
+    'DESCRIPTION': 'Documentation of my API endpoints',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
 
 
 # Application definition
@@ -82,6 +90,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'django_extensions',
+    'drf_spectacular',
 
     'users',
     'candidates',
