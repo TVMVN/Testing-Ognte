@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Loader2, FileText, ArrowLeft, RefreshCw, Upload, CheckCircle, AlertCircle, TrendingUp, Award, Target, BarChart3, FileUp, Star, AlertTriangle, ThumbsUp, Eye, Download, Trash2 } from "lucide-react";
+import { Loader2, FileText, ArrowLeft, RefreshCw, CheckCircle, AlertCircle, TrendingUp, Award, Target, BarChart3, Star, AlertTriangle, ThumbsUp, Eye } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -16,20 +16,16 @@ import { ResponsiveContainer, RadialBarChart, RadialBar, PieChart, Pie, Cell } f
 export default function ResumeAnalyzer() {
   const [resumeText, setResumeText] = useState("");
   const [originalResumeText, setOriginalResumeText] = useState("");
-  const [originalResumeFile, setOriginalResumeFile] = useState(null); // Store original file info
-  const [currentAnalyzingText, setCurrentAnalyzingText] = useState("");
-  const [resumeTitle, setResumeTitle] = useState("Current Resume");
+  const [originalResumeFile, setOriginalResumeFile] = useState(null);
+  const [resumeTitle, setResumeTitle] = useState("Profile Resume");
   const [skills, setSkills] = useState([]);
   const [score, setScore] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [extracting, setExtracting] = useState(false);
-  const [extractingProfile, setExtractingProfile] = useState(false); // New state for profile extraction
+  const [extractingProfile, setExtractingProfile] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [isTemporaryResume, setIsTemporaryResume] = useState(false);
   
   const params = useParams();
   const router = useRouter();
@@ -134,49 +130,12 @@ export default function ResumeAnalyzer() {
     }
   };
 
-  // Enhanced text extraction with better error handling and support
-  const extractTextFromFile = async (file) => {
-    setExtracting(true);
-    try {
-      const fileType = file.type;
-      const fileName = file.name.toLowerCase();
-      let extracted = '';
-
-      toast.info(`Extracting text from ${file.name}...`);
-
-      if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-        extracted = await extractPDFText(file);
-      } else if (fileType.includes('word') || fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
-        extracted = await extractWordText(file);
-      } else if (fileType === 'text/plain' || fileName.endsWith('.txt')) {
-        extracted = await extractPlainText(file);
-      } else {
-        throw new Error(`Unsupported file format: ${fileType || 'unknown'}. Please use PDF, DOC, DOCX, or TXT files.`);
-      }
-
-      if (!extracted || extracted.trim().length < 50) {
-        throw new Error('Unable to extract meaningful text from this file. Please check if the file contains readable text.');
-      }
-
-      toast.success(`Successfully extracted ${extracted.length} characters from ${file.name}`);
-      return extracted;
-    } catch (err) {
-      console.error('Text extraction error:', err);
-      toast.error(err.message || 'Failed to extract text from file');
-      return null;
-    } finally {
-      setExtracting(false);
-    }
-  };
-
-  // New function to extract text from profile resume file
+  // Text extraction functions for profile resume files
   const extractTextFromProfileFile = async (fileData, fileName) => {
     setExtractingProfile(true);
     try {
-      // Create a blob from the file data
       let blob;
       if (typeof fileData === 'string') {
-        // If it's a base64 string, convert it
         const byteCharacters = atob(fileData);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
@@ -185,11 +144,9 @@ export default function ResumeAnalyzer() {
         const byteArray = new Uint8Array(byteNumbers);
         blob = new Blob([byteArray]);
       } else {
-        // If it's already a blob or array buffer
         blob = new Blob([fileData]);
       }
 
-      // Create a File object with the correct name
       const file = new File([blob], fileName, {
         type: getFileTypeFromName(fileName)
       });
@@ -214,7 +171,6 @@ export default function ResumeAnalyzer() {
     }
   };
 
-  // Helper function to determine file type from name
   const getFileTypeFromName = (fileName) => {
     const ext = fileName.toLowerCase().split('.').pop();
     switch (ext) {
@@ -231,7 +187,6 @@ export default function ResumeAnalyzer() {
     }
   };
 
-  // Internal extraction function (without UI state management)
   const extractTextFromFileInternal = async (file) => {
     const fileType = file.type;
     const fileName = file.name.toLowerCase();
@@ -250,10 +205,8 @@ export default function ResumeAnalyzer() {
     return extracted;
   };
 
-  // Improved PDF text extraction
   const extractPDFText = async (file) => {
     return new Promise((resolve, reject) => {
-      // Try to use PDF.js if available
       if (typeof window !== 'undefined' && window.pdfjsLib) {
         const fileReader = new FileReader();
         fileReader.onload = async (e) => {
@@ -277,23 +230,16 @@ export default function ResumeAnalyzer() {
         fileReader.onerror = () => reject(new Error('Failed to read PDF file'));
         fileReader.readAsArrayBuffer(file);
       } else {
-        // Fallback message with instructions
         resolve(`PDF text extraction requires additional libraries. 
 
-To extract text from this PDF:
-1. Copy the text content from your PDF viewer
-2. Paste it into the text area below
-3. Or convert the PDF to Word format and re-upload
-
-File name: ${file.name}
+Profile Resume File: ${file.name}
 File size: ${(file.size / 1024).toFixed(1)} KB
 
-Please paste your resume content manually in the text area below.`);
+Please ensure your profile resume text is properly saved in your profile.`);
       }
     });
   };
 
-  // Enhanced Word document extraction
   const extractWordText = async (file) => {
     if (typeof window !== 'undefined' && window.mammoth) {
       try {
@@ -310,10 +256,9 @@ Please paste your resume content manually in the text area below.`);
       }
     }
     
-    throw new Error('Word document processing is not available. Please convert to PDF or copy the text manually.');
+    throw new Error('Word document processing is not available. Please ensure your profile resume text is properly saved.');
   };
 
-  // Plain text extraction
   const extractPlainText = async (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -328,38 +273,6 @@ Please paste your resume content manually in the text area below.`);
       reader.onerror = () => reject(new Error('Failed to read text file'));
       reader.readAsText(file, 'UTF-8');
     });
-  };
-
-  // Handle file upload and automatic extraction
-  const handleFileUpload = async (file) => {
-    if (!file) return;
-
-    setError("");
-    setSuccess("");
-    setSelectedFile(file);
-
-    try {
-      const extracted = await extractTextFromFile(file);
-      
-      if (extracted) {
-        // Automatically load the extracted text
-        setResumeText(extracted);
-        setCurrentAnalyzingText(extracted);
-        setResumeTitle(`${file.name}`);
-        setIsTemporaryResume(true);
-        
-        // Clear previous analysis results
-        setScore(null);
-        setAnalysis(null);
-        setSkills([]);
-        
-        toast.success(`Resume loaded successfully from ${file.name}! Ready for analysis.`);
-      }
-    } catch (err) {
-      console.error('Extraction error:', err);
-      setError(err.message || "Failed to extract text from file");
-      toast.error(`Failed to extract text from ${file.name}`);
-    }
   };
 
   const fetchProfile = async () => {
@@ -383,7 +296,6 @@ Please paste your resume content manually in the text area below.`);
           const extractedText = await extractTextFromProfileFile(data.resume_file, data.resume_file_name);
           if (extractedText) {
             profileResumeText = extractedText;
-            // Optionally save the extracted text back to profile
             await updateProfileResumeText(extractedText);
           }
         } catch (extractError) {
@@ -391,7 +303,6 @@ Please paste your resume content manually in the text area below.`);
         }
       }
       
-      // Store original file info if available
       if (data.resume_file && data.resume_file_name) {
         setOriginalResumeFile({
           file: data.resume_file,
@@ -405,12 +316,12 @@ Please paste your resume content manually in the text area below.`);
       setScore(data.resume_score ?? null);
       setAnalysis(data.resume_analysis || null);
       setResumeTitle("Profile Resume");
-      setIsTemporaryResume(false);
       
       if (profileResumeText) {
-        toast.success('Profile data loaded successfully');
+        toast.success('Profile resume loaded successfully');
       } else {
-        toast.info('Profile loaded. Please upload a resume or add resume text.');
+        toast.info('No resume found in profile. Please add resume content to your profile first.');
+        setError('No resume found in your profile. Please go to your profile page and add your resume content first.');
       }
     } catch (err) {
       console.error('Fetch profile error:', err);
@@ -421,7 +332,6 @@ Please paste your resume content manually in the text area below.`);
     }
   };
 
-  // New function to update profile resume text
   const updateProfileResumeText = async (resumeText) => {
     try {
       const token = getAccessToken();
@@ -443,55 +353,10 @@ Please paste your resume content manually in the text area below.`);
     }
   };
 
-  const temporaryUpdateResume = async (newResumeText) => {
-    try {
-      const token = getAccessToken();
-      if (!token) return false;
-
-      const response = await axios.patch(`${BACKEND_API}/profile/`, {
-        resume_text: newResumeText
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      return response.status === 200;
-    } catch (error) {
-      console.error('Temporary update error:', error);
-      return false;
-    }
-  };
-
-  const restoreOriginalResume = async () => {
-    if (!originalResumeText) return true;
-    
-    try {
-      const token = getAccessToken();
-      if (!token) return false;
-
-      const response = await axios.patch(`${BACKEND_API}/profile/`, {
-        resume_text: originalResumeText
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      return response.status === 200;
-    } catch (error) {
-      console.error('Restore original resume error:', error);
-      return false;
-    }
-  };
-
   const analyzeResume = async () => {
-    const textToAnalyze = currentAnalyzingText || resumeText;
-    
-    if (!textToAnalyze.trim()) {
-      toast.error('Please upload a resume or ensure resume text is available');
+    if (!resumeText.trim()) {
+      toast.error('No resume content found. Please add resume content to your profile first.');
+      setError('No resume content available for analysis. Please go to your profile and add your resume first.');
       return;
     }
 
@@ -501,16 +366,6 @@ Please paste your resume content manually in the text area below.`);
     toast.info('Starting resume analysis...');
     
     try {
-      let needsRestore = false;
-      if (currentAnalyzingText && currentAnalyzingText !== originalResumeText) {
-        toast.info('Preparing resume for analysis...');
-        const updateSuccess = await temporaryUpdateResume(currentAnalyzingText);
-        if (!updateSuccess) {
-          throw new Error('Failed to prepare resume for analysis');
-        }
-        needsRestore = true;
-      }
-
       const response = await makeAuthenticatedRequest(`${BACKEND_API}/resume-analysis/`, {
         method: "GET"
       });
@@ -525,13 +380,6 @@ Please paste your resume content manually in the text area below.`);
       toast.success(`Resume analysis complete! Score: ${data.resume_score}%`);
       setSuccess("Resume analyzed successfully! Check your score and recommendations below.");
       
-      if (needsRestore) {
-        setTimeout(async () => {
-          await restoreOriginalResume();
-          toast.info('Original profile resume restored');
-        }, 1000);
-      }
-      
       setTimeout(() => setSuccess(""), 8000);
       
     } catch (err) {
@@ -539,26 +387,9 @@ Please paste your resume content manually in the text area below.`);
       const errorMessage = err.response?.data?.message || err.message || "Error analyzing resume";
       setError(errorMessage);
       toast.error('Resume analysis failed: ' + errorMessage);
-      
-      if (currentAnalyzingText && currentAnalyzingText !== originalResumeText) {
-        await restoreOriginalResume();
-      }
     } finally {
       setAnalyzing(false);
     }
-  };
-
-  const loadOriginalResume = () => {
-    setResumeText(originalResumeText);
-    setCurrentAnalyzingText("");
-    setResumeTitle("Profile Resume");
-    setIsTemporaryResume(false);
-    
-    setScore(null);
-    setAnalysis(null);
-    setSkills([]);
-    
-    toast.success('Original profile resume loaded');
   };
 
   useEffect(() => {
@@ -575,7 +406,6 @@ Please paste your resume content manually in the text area below.`);
   // Load external libraries
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Load mammoth for Word documents
       if (!window.mammoth) {
         const mammothScript = document.createElement('script');
         mammothScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js';
@@ -583,7 +413,6 @@ Please paste your resume content manually in the text area below.`);
         document.head.appendChild(mammothScript);
       }
       
-      // Load PDF.js for PDF documents
       if (!window.pdfjsLib) {
         const pdfScript = document.createElement('script');
         pdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
@@ -675,7 +504,7 @@ Please paste your resume content manually in the text area below.`);
             <h1 className="text-3xl font-bold text-slate-800">Resume Analyzer</h1>
           </div>
           <p className="text-slate-600 text-lg">
-            Upload, analyze, and optimize your resume with AI-powered insights
+            Analyze and optimize your profile resume with AI-powered insights
           </p>
         </div>
 
@@ -705,65 +534,6 @@ Please paste your resume content manually in the text area below.`);
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Resume Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* File Upload Section */}
-            <Card className="shadow-lg border-0 bg-white/70 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-t-lg">
-                <CardTitle className="flex items-center gap-2">
-                  <FileUp className="h-5 w-5" />
-                  Upload Resume File
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="resume-upload" className="text-sm font-medium text-slate-700">
-                      Select Resume File (PDF, DOC, DOCX, TXT)
-                    </Label>
-                    <Input
-                      id="resume-upload"
-                      type="file"
-                      accept=".pdf,.doc,.docx,.txt"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          handleFileUpload(file);
-                        }
-                      }}
-                      className="mt-1"
-                      disabled={extracting || extractingProfile}
-                    />
-                    {(extracting || extractingProfile) && (
-                      <div className="mt-3 flex items-center gap-2 text-blue-600">
-                        <Loader2 className="animate-spin h-4 w-4" />
-                        <span className="text-sm">
-                          {extracting ? `Extracting text from ${selectedFile?.name}...` : 'Extracting text from profile resume...'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {isTemporaryResume && (
-                    <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="text-sm text-green-700">
-                        Resume loaded successfully! You can now analyze it or load your original profile resume.
-                      </span>
-                    </div>
-                  )}
-
-                  {originalResumeFile && (
-                    <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <FileText className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm text-blue-700">
-                        Profile contains resume file: <strong>{originalResumeFile.name}</strong>
-                        {extractingProfile && ' - Extracting text...'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Resume Content Display */}
             <Card className="shadow-lg border-0 bg-white/70 backdrop-blur-sm">
               <CardHeader className="bg-gradient-to-r from-green-600 to-indigo-600 text-white rounded-t-lg">
@@ -771,23 +541,7 @@ Please paste your resume content manually in the text area below.`);
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5" />
                     <span className="truncate">{resumeTitle}</span>
-                    {isTemporaryResume && (
-                      <span className="ml-2 px-2 py-1 bg-yellow-500 text-yellow-900 text-xs rounded-full whitespace-nowrap">
-                        Uploaded
-                      </span>
-                    )}
                   </CardTitle>
-                  {isTemporaryResume && (
-                    <Button
-                      onClick={loadOriginalResume}
-                      variant="ghost"
-                      size="sm"
-                      className="text-white hover:bg-white/20 border border-white/30"
-                    >
-                      <RefreshCw className="h-4 w-4 mr-1" />
-                      Load Profile
-                    </Button>
-                  )}
                 </div>
                 {resumeText && (
                   <p className="text-sm text-white/80 mt-2">
@@ -807,31 +561,38 @@ Please paste your resume content manually in the text area below.`);
                   <div className="space-y-4">
                     <Textarea
                       value={resumeText}
-                      onChange={(e) => {
-                        setResumeText(e.target.value);
-                        if (isTemporaryResume) {
-                          setCurrentAnalyzingText(e.target.value);
-                        }
-                      }}
+                      onChange={(e) => setResumeText(e.target.value)}
                       rows={16}
                       className="bg-slate-50 border-slate-200 text-slate-700 resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm leading-relaxed"
-                      placeholder={isTemporaryResume ? 
-                        "Your uploaded resume content will appear here. You can edit it before analysis." :
-                        "No resume found. Please upload a resume file above or paste your resume text here."
-                      }
+                      placeholder="Your profile resume content will appear here. You can edit it before analysis."
+                      readOnly={!resumeText}
                     />
                     
-                    {resumeText && !isTemporaryResume && (
-                      <div className="text-xs text-slate-500 bg-slate-100 p-3 rounded-lg">
-                        <strong>Profile Resume:</strong> This is your saved profile resume. 
-                        Upload a different file above to analyze other resumes without affecting your profile.
+                    {originalResumeFile && (
+                      <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <FileText className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm text-blue-700">
+                          Profile contains resume file: <strong>{originalResumeFile.name}</strong>
+                          {extractingProfile && ' - Extracting text...'}
+                        </span>
                       </div>
                     )}
                     
-                    {resumeText && isTemporaryResume && (
-                      <div className="text-xs text-slate-500 bg-blue-50 p-3 rounded-lg border border-blue-200">
-                        <strong>Uploaded Resume:</strong> This text was extracted from your uploaded file. 
-                        You can edit it above if needed, then click "Analyze Resume" to get insights.
+                    {resumeText && (
+                      <div className="text-xs text-slate-500 bg-slate-100 p-3 rounded-lg">
+                        <strong>Profile Resume:</strong> This is your saved profile resume. 
+                        You can make edits here before analysis. Changes are temporary and won't affect your saved profile.
+                      </div>
+                    )}
+
+                    {!resumeText && !loading && (
+                      <div className="text-center py-8 text-slate-400">
+                        <FileText className="h-12 w-12 mx-auto mb-3" />
+                        <p className="text-lg font-medium mb-2">No Resume Found</p>
+                        <p className="text-sm">Please add your resume content to your profile first.</p>
+                        <Link href={`/dashboard/${username}/profile`} className="inline-block mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                          Go to Profile
+                        </Link>
                       </div>
                     )}
                   </div>
@@ -865,7 +626,7 @@ Please paste your resume content manually in the text area below.`);
                   ) : (
                     <>
                       <BarChart3 className="h-4 w-4 mr-2" />
-                      Analyze Resume
+                      Analyze Profile Resume
                     </>
                   )}
                 </Button>
@@ -879,6 +640,20 @@ Please paste your resume content manually in the text area below.`);
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh Profile Data
                 </Button>
+
+                {!resumeText && !loading && (
+                  <div className="text-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 mx-auto mb-2" />
+                    <p className="text-sm text-yellow-700 mb-3">
+                      No resume content found in your profile.
+                    </p>
+                    <Link href={`/dashboard/${username}/profile`}>
+                      <Button variant="outline" size="sm" className="border-yellow-300 text-yellow-700 hover:bg-yellow-100">
+                        Add Resume to Profile
+                      </Button>
+                    </Link>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1014,26 +789,49 @@ Please paste your resume content manually in the text area below.`);
             )}
 
             {/* No Analysis Yet */}
-            {!loading && !analyzing && !extractingProfile && score === null && (
+            {!loading && !analyzing && !extractingProfile && score === null && resumeText && (
               <Card className="shadow-lg border-0 bg-white/70 backdrop-blur-sm">
                 <CardContent className="p-6 text-center">
                   <div className="text-slate-400 mb-4">
                     <TrendingUp className="h-12 w-12 mx-auto mb-3" />
                     <h3 className="text-lg font-semibold">Ready for Analysis</h3>
-                    <p className="text-sm mb-4">Upload a resume file or use your profile resume to get AI-powered insights</p>
+                    <p className="text-sm mb-4">Your profile resume is loaded and ready to be analyzed</p>
                     <div className="text-xs text-slate-500 space-y-1">
-                      <p>✓ Upload PDF, DOC, DOCX, or TXT files</p>
-                      <p>✓ Automatic text extraction and processing</p>
+                      <p>✓ Profile resume loaded successfully</p>
+                      <p>✓ AI-powered analysis and scoring</p>
                       <p>✓ Instant feedback and improvement suggestions</p>
-                      <p>✓ Your profile resume remains unchanged</p>
+                      <p>✓ Personalized recommendations</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             )}
 
+            {/* No Resume Available */}
+            {!loading && !analyzing && !extractingProfile && !resumeText && (
+              <Card className="shadow-lg border-0 bg-white/70 backdrop-blur-sm">
+                <CardContent className="p-6 text-center">
+                  <div className="text-slate-400 mb-4">
+                    <FileText className="h-12 w-12 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold">No Resume Found</h3>
+                    <p className="text-sm mb-4">Please add your resume content to your profile to get started</p>
+                    <div className="text-xs text-slate-500 space-y-1 mb-4">
+                      <p>• Go to your profile page</p>
+                      <p>• Add or upload your resume content</p>
+                      <p>• Return here to analyze your resume</p>
+                    </div>
+                    <Link href={`/dashboard/${username}/profile`}>
+                      <Button className="bg-green-600 hover:bg-green-700 text-white">
+                        Go to Profile
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Loading State */}
-            {(loading || analyzing || extracting || extractingProfile) && (
+            {(loading || analyzing || extractingProfile) && (
               <Card className="shadow-lg border-0 bg-white/70 backdrop-blur-sm">
                 <CardContent className="p-6 text-center">
                   <div className="text-slate-400 mb-4">
@@ -1041,13 +839,11 @@ Please paste your resume content manually in the text area below.`);
                     <h3 className="text-lg font-semibold">
                       {loading ? 'Loading Profile...' : 
                        analyzing ? 'Analyzing Resume...' : 
-                       extracting ? 'Extracting Text...' :
                        'Processing Profile Resume...'}
                     </h3>
                     <p className="text-sm">
                       {loading ? 'Fetching your profile information' : 
                        analyzing ? 'AI is processing your resume for insights' :
-                       extracting ? 'Processing your uploaded file' :
                        'Extracting text from your profile resume file'}
                     </p>
                   </div>
@@ -1063,52 +859,47 @@ Please paste your resume content manually in the text area below.`);
             <CardContent className="p-6">
               <div className="text-center text-slate-600">
                 <h3 className="font-semibold mb-4">How to Use Resume Analyzer</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div className="flex flex-col items-center gap-2 p-4 bg-blue-50 rounded-lg">
-                    <Upload className="h-8 w-8 text-blue-600" />
-                    <span className="font-medium">1. Upload File</span>
-                    <span className="text-xs text-center">Select your resume file (PDF, DOC, DOCX, TXT)</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-2 p-4 bg-green-50 rounded-lg">
-                    <Eye className="h-8 w-8 text-green-600" />
-                    <span className="font-medium">2. Review Text</span>
-                    <span className="text-xs text-center">Check extracted text and make any needed edits</span>
+                    <FileText className="h-8 w-8 text-blue-600" />
+                    <span className="font-medium">1. Profile Resume</span>
+                    <span className="text-xs text-center">Your saved profile resume is automatically loaded</span>
                   </div>
                   <div className="flex flex-col items-center gap-2 p-4 bg-purple-50 rounded-lg">
                     <BarChart3 className="h-8 w-8 text-purple-600" />
-                    <span className="font-medium">3. Analyze</span>
+                    <span className="font-medium">2. Analyze</span>
                     <span className="text-xs text-center">Get AI-powered analysis and scoring</span>
                   </div>
                   <div className="flex flex-col items-center gap-2 p-4 bg-yellow-50 rounded-lg">
                     <Target className="h-8 w-8 text-yellow-600" />
-                    <span className="font-medium">4. Improve</span>
+                    <span className="font-medium">3. Improve</span>
                     <span className="text-xs text-center">Follow personalized recommendations</span>
                   </div>
                 </div>
                 <div className="mt-6 p-4 bg-slate-50 rounded-lg border">
-                  <h4 className="font-medium mb-2">Supported File Formats</h4>
+                  <h4 className="font-medium mb-2">Analysis Features</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                     <div className="flex items-center gap-1">
-                      <FileText className="h-3 w-3 text-red-500" />
-                      <span>PDF Files</span>
+                      <Award className="h-3 w-3 text-green-500" />
+                      <span>Resume Scoring</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <FileText className="h-3 w-3 text-blue-500" />
-                      <span>Word Documents</span>
+                      <Target className="h-3 w-3 text-blue-500" />
+                      <span>Skills Detection</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <FileText className="h-3 w-3 text-green-500" />
-                      <span>Text Files</span>
+                      <TrendingUp className="h-3 w-3 text-purple-500" />
+                      <span>AI Recommendations</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3 text-purple-500" />
-                      <span>All formats supported</span>
+                      <CheckCircle className="h-3 w-3 text-indigo-500" />
+                      <span>Detailed Insights</span>
                     </div>
                   </div>
                 </div>
                 <p className="mt-4 text-xs text-slate-500">
-                  Your original profile resume is always preserved. Uploaded files are used for temporary analysis only.
-                  Profile resume files are automatically processed when available.
+                  This analyzer works exclusively with your profile resume. 
+                  To add or update your resume, please visit your profile page first.
                 </p>
               </div>
             </CardContent>
