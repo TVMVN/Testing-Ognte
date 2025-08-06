@@ -32,6 +32,10 @@ from django.shortcuts import get_object_or_404
 from applications.models import JobPost, Application
 from applications.serializers import JobPostingCreateSerializer, ApplicationSerializer
 
+from rest_framework import generics, permissions
+from applications.models import Application
+from .serializers import AcceptedCandidateSerializer
+
 # -------------------------
 # Unified JobPost ViewSet
 # -------------------------
@@ -297,3 +301,18 @@ class RejectApplicationView(generics.GenericAPIView):
         application.save()
 
         return Response({'detail': 'Application rejected successfully.'})
+
+
+
+
+class AcceptedCandidateListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsRecruiterUser]
+    serializer_class = AcceptedCandidateSerializer
+
+    def get_queryset(self):
+        # Only show accepted candidates for job posts owned by this recruiter
+        recruiter = self.request.user.recruiter_profile
+        return Application.objects.filter(
+            job_post__recruiter=recruiter,
+            status='accepted'
+        ).select_related('candidate__user', 'job_post')

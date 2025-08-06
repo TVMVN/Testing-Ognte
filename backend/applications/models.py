@@ -105,6 +105,8 @@ class Application(models.Model):
     applied_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    additional_skills = models.JSONField(default=list, blank=True)
+
     offer_response = models.CharField(max_length=20, choices=[('none', 'None'), ('accepted', 'Accepted'), ('denied', 'Denied')], default='none')
 
     class Meta:
