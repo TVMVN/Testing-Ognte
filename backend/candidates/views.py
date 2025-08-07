@@ -24,7 +24,7 @@ class MyApplicationsView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsCandidateUser]
 
     def get_queryset(self):
-        return Application.objects.filter(candidate=self.request.user.candidate_profile.first())
+        return Application.objects.filter(candidate=self.request.user.candidate_profile).order_by('-applied_at')
 
 
 class ApplyToJobView(APIView):
