@@ -307,14 +307,7 @@ export default function ListingsPage() {
     try {
       // Create FormData for auto apply
       const formData = new FormData();
-      
-      // Add core application fields
-      // formData.append('job_title', selectedJob?.jobTitle || '');
-      // formData.append('candidate_name', candidateProfile.user?.first_name && candidateProfile.user?.last_name 
-      //   ? `${candidateProfile.user.first_name} ${candidateProfile.user.last_name}`.trim()
-      //   : candidateProfile.user?.username || 'Not provided');
-      // formData.append('candidate_email', candidateProfile.user?.email || '');
-      // formData.append('professional_title', candidateProfile.professional_title || '');
+
       formData.append('duration_of_internship', quickApplyDuration);
       
       // Use resume from profile - this becomes resume_url in application
@@ -347,22 +340,7 @@ export default function ListingsPage() {
       // if (candidateProfile.city) {
       //   formData.append('city', candidateProfile.city);
       // }
-      // if (candidateProfile.gender) {
-      //   formData.append('gender', candidateProfile.gender);
-      // }
-      // if (candidateProfile.employment_type) {
-      //   formData.append('employment_type', candidateProfile.employment_type);
-      // }
-      // if (candidateProfile.date_of_birth) {
-      //   formData.append('date_of_birth', candidateProfile.date_of_birth);
-      // }
-      
-      // // Handle profile_picture as URL string (not file)
-      // if (candidateProfile.profile_picture) {
-      //   formData.append('profile_picture', candidateProfile.profile_picture);
-      // }
-      
-      // Handle cover letter for quick apply
+   
       if (quickApplyIncludeCoverLetter) {
         if (quickApplyCoverLetterType === 'text' && quickApplyCoverLetter.trim()) {
           formData.append('cover_letter_url', quickApplyCoverLetter.trim());
@@ -376,7 +354,11 @@ export default function ListingsPage() {
       const response = await makeAuthenticatedRequest(`${API_URL}/api/candidates/apply/${jobId}/`, {
         method: 'POST',
         data: formData,
-      });
+        headers: {
+            'Content-Type': 'multipart/form-data',
+            ...options.headers,
+            Authorization: `Bearer ${token}`,
+      },      });
 
       if (response && response.status === 201) {
         toast.success('Auto application submitted successfully!', {
@@ -422,70 +404,27 @@ export default function ListingsPage() {
       const formData = new FormData();
       
       // Add the resume file (this will be uploaded and stored as resume_url)
-      formData.append('resume_file', selectedFile, selectedFile.name);
+      formData.append('resume', selectedFile, selectedFile.name);
       
       // Add core fields
-      formData.append('job_title', selectedJob?.jobTitle || '');
-      formData.append('candidate_name', candidateProfile?.user?.first_name && candidateProfile?.user?.last_name 
-        ? `${candidateProfile.user.first_name} ${candidateProfile.user.last_name}`.trim()
-        : candidateProfile?.user?.username || 'Not provided');
-      formData.append('candidate_email', candidateProfile?.user?.email || '');
-      formData.append('professional_title', candidateProfile?.professional_title || '');
+      // 
       formData.append('duration_of_internship', selectedDuration);
       
-      // Profile skills as JSON array (if available)
-      if (candidateProfile?.skills && candidateProfile.skills.length > 0) {
-        formData.append('skills', JSON.stringify(candidateProfile.skills));
-      }
+      
       
       // Additional skills as JSON array (optional)
       if (validSkills.length > 0) {
         formData.append('additional_skills', JSON.stringify(validSkills));
       }
       
-      // Other profile fields using exact DB field names (if available)
-      if (candidateProfile?.languages) {
-        formData.append('languages', candidateProfile.languages);
-      }
-      if (candidateProfile?.phone) {
-        formData.append('phone', candidateProfile.phone);
-      }
-      if (candidateProfile?.university) {
-        formData.append('university', candidateProfile.university);
-      }
-      if (candidateProfile?.university_name) {
-        formData.append('university_name', candidateProfile.university_name);
-      }
-      if (candidateProfile?.degree) {
-        formData.append('degree', candidateProfile.degree);
-      }
-      if (candidateProfile?.graduation_year) {
-        formData.append('graduation_year', candidateProfile.graduation_year);
-      }
-      if (candidateProfile?.city) {
-        formData.append('city', candidateProfile.city);
-      }
-      if (candidateProfile?.gender) {
-        formData.append('gender', candidateProfile.gender);
-      }
-      if (candidateProfile?.employment_type) {
-        formData.append('employment_type', candidateProfile.employment_type);
-      }
-      if (candidateProfile?.date_of_birth) {
-        formData.append('date_of_birth', candidateProfile.date_of_birth);
-      }
       
-      // Handle profile_picture as URL string (not file) if available
-      if (candidateProfile?.profile_picture) {
-        formData.append('profile_picture', candidateProfile.profile_picture);
-      }
       
       // Handle cover letter for manual apply (optional)
       if (includeCoverLetter) {
         if (coverLetterType === 'text' && coverLetter.trim()) {
           formData.append('cover_letter_url', coverLetter.trim());
         } else if (coverLetterType === 'file' && coverLetterFile) {
-          formData.append('cover_letter_file', coverLetterFile, coverLetterFile.name);
+          formData.append('cover_letter_url', coverLetterFile, coverLetterFile.name);
         }
       }
 
@@ -1298,13 +1237,13 @@ export default function ListingsPage() {
                     required
                   >
                     <option value="">Select duration...</option>
-                    <option value="1">1 month</option>
-                    <option value="2">2 months</option>
-                    <option value="3">3 months</option>
-                    <option value="4">4 months</option>
-                    <option value="5">5 months</option>
-                    <option value="6">6 months</option>
-                    <option value="12">12 months</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="12">12</option>
                   </select>
                 </div>
 
