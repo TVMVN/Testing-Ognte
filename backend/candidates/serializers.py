@@ -20,10 +20,10 @@ class MyApplicationSerializer(serializers.ModelSerializer):
 
 
 class ApplicationCreateSerializer(serializers.ModelSerializer):
-    cover_letter = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = Application
-        fields = ['resume', 'cover_letter', 'duration_of_internship', 'additional_skills']
+        fields = ['resume', 'cover_letter', 'duration_of_internship']
 
 
     def _get_candidate(self):
@@ -66,7 +66,7 @@ class ApplicationCreateSerializer(serializers.ModelSerializer):
             file_path = resume_file.path if hasattr(resume_file, 'path') else None
             if not file_path:
                 # If InMemoryUploadedFile, save to temp
-                from django.core.files.temp import NamedTemporaryFile
+                from tempfile import NamedTemporaryFile
                 temp_file = NamedTemporaryFile(delete=False, suffix=os.path.splitext(resume_file.name)[-1])
                 for chunk in resume_file.chunks():
                     temp_file.write(chunk)

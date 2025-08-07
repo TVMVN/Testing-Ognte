@@ -311,7 +311,7 @@ export default function ListingsPage() {
       formData.append('duration_of_internship', quickApplyDuration);
       
       // Use resume from profile - this becomes resume_url in application
-      formData.append('resume', candidateProfile.resume); // Profile resume field maps to application resume_url
+     // Profile resume field maps to application resume_url
       
       // Profile skills as JSON array
       // if (candidateProfile.skills && candidateProfile.skills.length > 0) {

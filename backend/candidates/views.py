@@ -31,6 +31,9 @@ class ApplyToJobView(APIView):
     permission_classes = [IsAuthenticated, IsCandidateUser]
 
     def post(self, request, job_id, *args, **kwargs):
+        print(">>> ApplyToJobView triggered")
+        print("Incoming data:", request.data)
+        print("User:", request.user)
         candidate = getattr(request.user, 'candidate_profile', None)
         if not candidate:
             return Response({'error': 'Candidate profile not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -45,6 +48,8 @@ class ApplyToJobView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response({'message': 'Application submitted successfully.'}, status=status.HTTP_201_CREATED)
+
+        print("Serializer errors:", serializer.errors)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
