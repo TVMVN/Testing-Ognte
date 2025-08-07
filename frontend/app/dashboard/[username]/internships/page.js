@@ -153,7 +153,7 @@ export default function ListingsPage() {
       ...options,
       headers: {
         // Only set default Content-Type if it's not FormData
-        ...(options.data instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+        ...(!(options.data instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
         ...options.headers,
         Authorization: `Bearer ${token}`,
       },
@@ -201,6 +201,37 @@ export default function ListingsPage() {
       console.error('Error fetching candidate profile:', error);
       // Don't show error toast as this is background fetch
       // User can still apply but might need to provide more info
+    }
+  };
+
+  // FIXED: Download profile resume as blob
+  const downloadProfileResume = async () => {
+    if (!candidateProfile?.resume) {
+      console.error('No resume found in profile');
+      return null;
+    }
+
+    try {
+      console.log('Downloading profile resume from:', candidateProfile.resume);
+      
+      // Make authenticated request to download the resume file
+      const response = await makeAuthenticatedRequest(candidateProfile.resume, {
+        method: 'GET',
+        responseType: 'blob', // Important: get response as blob
+      });
+
+      if (response && response.status === 200) {
+        // Create a blob from the response data
+        const blob = response.data;
+        console.log('Resume blob downloaded:', blob.size, 'bytes');
+        return blob;
+      } else {
+        console.error('Failed to download resume:', response?.status);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error downloading profile resume:', error);
+      return null;
     }
   };
 
@@ -285,7 +316,7 @@ export default function ListingsPage() {
     }
   };
 
-  // Auto Apply - Uses profile resume automatically
+  // FIXED: Auto Apply - Uses profile resume automatically
   const handleAutoApply = async (jobId) => {
     if (!jobId) {
       toast.error('Job ID is missing.');
@@ -305,63 +336,59 @@ export default function ListingsPage() {
     setApplying(true);
 
     try {
+      // FIXED: Download the profile resume first
+      console.log('Downloading profile resume for quick apply...');
+      const resumeBlob = await downloadProfileResume();
+      
+      if (!resumeBlob) {
+        toast.error('Failed to download your profile resume. Please try Custom Apply instead.');
+        return;
+      }
+
       // Create FormData for auto apply
       const formData = new FormData();
 
+      // FIXED: Add the profile resume as a file
+      // Extract filename from URL or use a default name
+      let resumeFilename = 'resume.pdf';
+      if (candidateProfile.resume) {
+        const urlParts = candidateProfile.resume.split('/');
+        const lastPart = urlParts[urlParts.length - 1];
+        if (lastPart && lastPart.includes('.')) {
+          resumeFilename = lastPart;
+        }
+      }
+      
+      formData.append('resume', resumeBlob, resumeFilename);
+
+      // Add duration as required field
       formData.append('duration_of_internship', quickApplyDuration);
-      
-      // Use resume from profile - this becomes resume_url in application
-     // Profile resume field maps to application resume_url
-      
-      // Profile skills as JSON array
-      // if (candidateProfile.skills && candidateProfile.skills.length > 0) {
-      //   formData.append('skills', JSON.stringify(candidateProfile.skills));
-      // }
-      
-      // // Other profile fields using exact DB field names
-      // if (candidateProfile.languages) {
-      //   formData.append('languages', candidateProfile.languages);
-      // }
-      // if (candidateProfile.phone) {
-      //   formData.append('phone', candidateProfile.phone);
-      // }
-      // if (candidateProfile.university) {
-      //   formData.append('university', candidateProfile.university);
-      // }
-      // if (candidateProfile.university_name) {
-      //   formData.append('university_name', candidateProfile.university_name);
-      // }
-      // if (candidateProfile.degree) {
-      //   formData.append('degree', candidateProfile.degree);
-      // }
-      // if (candidateProfile.graduation_year) {
-      //   formData.append('graduation_year', candidateProfile.graduation_year);
-      // }
-      // if (candidateProfile.city) {
-      //   formData.append('city', candidateProfile.city);
-      // }
-   
+
+      // Handle cover letter for quick apply (optional)
       if (quickApplyIncludeCoverLetter) {
         if (quickApplyCoverLetterType === 'text' && quickApplyCoverLetter.trim()) {
-          formData.append('cover_letter_url', quickApplyCoverLetter.trim());
+          // For text cover letter, create a blob and append as file
+          const coverLetterBlob = new Blob([quickApplyCoverLetter.trim()], { type: 'text/plain' });
+          formData.append('cover_letter', coverLetterBlob, 'cover_letter.txt');
         } else if (quickApplyCoverLetterType === 'file' && quickApplyCoverLetterFile) {
-          formData.append('cover_letter_url', quickApplyCoverLetterFile, quickApplyCoverLetterFile.name);
+          formData.append('cover_letter', quickApplyCoverLetterFile, quickApplyCoverLetterFile.name);
         }
       }
 
-      console.log('Auto Apply FormData prepared');
+      console.log('Auto Apply FormData prepared with profile resume');
+      
+      // Debug FormData contents
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + (pair[1] instanceof File || pair[1] instanceof Blob ? `${pair[1].constructor.name} (${pair[1].size} bytes)` : pair[1]));
+      }
 
-      const response = await makeAuthenticatedRequest(`${API_URL}/api/candidates/apply/${jobId}/`, {
+      const response = await makeAuthenticatedRequest(`${API_URL}api/candidates/apply/${jobId}/`, {
         method: 'POST',
         data: formData,
-        headers: {
-            'Content-Type': 'multipart/form-data',
-            ...options.headers,
-            Authorization: `Bearer ${token}`,
-      },      });
+      });
 
       if (response && response.status === 201) {
-        toast.success('Auto application submitted successfully!', {
+        toast.success('Quick application submitted successfully!', {
           duration: 5000,
           description: "Your application has been sent using your profile resume!"
         });
@@ -373,13 +400,14 @@ export default function ListingsPage() {
       }
     } catch (error) {
       console.error('Error applying to job:', error);
+      console.error('Error response:', error.response?.data);
       handleApplicationError(error);
     } finally {
       setApplying(false);
     }
   };
 
-  // Manual Apply - Upload custom resume
+  // Manual Apply - Upload custom resume (unchanged)
   const handleManualApply = async () => {
     if (!applyingJob?.id) {
       toast.error('Job ID is missing.');
@@ -403,34 +431,36 @@ export default function ListingsPage() {
       // Create FormData for manual apply with file upload
       const formData = new FormData();
       
-      // Add the resume file (this will be uploaded and stored as resume_url)
+      // Add the resume file (this will be uploaded and stored)
       formData.append('resume', selectedFile, selectedFile.name);
       
       // Add core fields
-      // 
       formData.append('duration_of_internship', selectedDuration);
-      
-      
       
       // Additional skills as JSON array (optional)
       if (validSkills.length > 0) {
         formData.append('additional_skills', JSON.stringify(validSkills));
       }
       
-      
-      
       // Handle cover letter for manual apply (optional)
       if (includeCoverLetter) {
         if (coverLetterType === 'text' && coverLetter.trim()) {
-          formData.append('cover_letter_url', coverLetter.trim());
+          // For text cover letter, create a blob and append as file
+          const coverLetterBlob = new Blob([coverLetter.trim()], { type: 'text/plain' });
+          formData.append('cover_letter', coverLetterBlob, 'cover_letter.txt');
         } else if (coverLetterType === 'file' && coverLetterFile) {
-          formData.append('cover_letter_url', coverLetterFile, coverLetterFile.name);
+          formData.append('cover_letter', coverLetterFile, coverLetterFile.name);
         }
       }
 
       console.log('Manual Apply FormData prepared');
+      
+      // Debug FormData contents
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + (pair[1] instanceof File ? pair[1].name : pair[1]));
+      }
 
-      const response = await makeAuthenticatedRequest(`${API_URL}/api/candidates/apply/${applyingJob.id}/`, {
+      const response = await makeAuthenticatedRequest(`${API_URL}api/candidates/apply/${applyingJob.id}/`, {
         method: 'POST',
         data: formData,
       });
@@ -448,6 +478,7 @@ export default function ListingsPage() {
       }
     } catch (error) {
       console.error('Error applying to job:', error);
+      console.error('Error response:', error.response?.data);
       handleApplicationError(error);
     } finally {
       setApplying(false);
@@ -693,7 +724,6 @@ export default function ListingsPage() {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-white">
       {/* Floating Background Elements */}
@@ -1424,25 +1454,25 @@ export default function ListingsPage() {
 
                 {/* Duration Selection - Mandatory */}
                 <div className="space-y-3">
-                  <label className="block text-sm font-semibold text-gray-700">
-                    Preferred Internship Duration <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={selectedDuration}
-                    onChange={(e) => setSelectedDuration(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    required
-                  >
-                    <option value="">Select duration...</option>
-                    <option value="1">1 month</option>
-                    <option value="2">2 months</option>
-                    <option value="3">3 months</option>
-                    <option value="4">4 months</option>
-                    <option value="5">5 months</option>
-                    <option value="6">6 months</option>
-                    <option value="12">12 months</option>
-                  </select>
-                </div>
+  <label className="block text-sm font-semibold text-gray-700">
+    Preferred Internship Duration <span className="text-red-500">*</span>
+  </label>
+  <select
+    value={selectedDuration}
+    onChange={(e) => setSelectedDuration(e.target.value)}
+    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+    required
+  >
+    <option value="">Select duration...</option>
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+    <option value="12">12</option>
+  </select>
+</div>
 
                 {/* Additional Skills - Optional */}
                 <div className="space-y-3">

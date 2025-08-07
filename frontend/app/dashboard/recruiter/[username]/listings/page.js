@@ -114,6 +114,7 @@ const refreshAccessToken = async (router) => {
 const makeAuthenticatedRequest = async (url, options = {}, router) => {
   let token = getAccessToken();
   if (!token) {
+    
     console.warn("🔒 No token found. Redirecting to login.");
     router.push('/login');
     return null;
