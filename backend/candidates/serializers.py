@@ -20,7 +20,7 @@ class MyApplicationSerializer(serializers.ModelSerializer):
 
 
 class ApplicationCreateSerializer(serializers.ModelSerializer):
-
+    cover_letter = serializers.CharField(required=False, allow_blank=True)
     class Meta:
         model = Application
         fields = ['resume', 'cover_letter', 'duration_of_internship']
