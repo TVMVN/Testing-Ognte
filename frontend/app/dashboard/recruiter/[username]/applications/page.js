@@ -315,8 +315,7 @@ export default function RecruiterApplicationsPage() {
         candidate?.university,
         candidate?.skills?.join(' '),
         jobPost?.title,
-        jobPost?.industry,
-        jobPost?.id
+        jobPost?.industry
       ];
 
       const matchesSearch = searchFields.some(field =>

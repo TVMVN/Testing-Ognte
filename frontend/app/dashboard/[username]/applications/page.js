@@ -165,36 +165,96 @@ export default function ApplicationsPage() {
 
   // Accept offer
   const acceptOffer = async (applicationId) => {
-    setRespondingToOffer(applicationId);
-    try {
-      const response = await makeAuthenticatedRequest(
-        `${API_URL}/api/candidates/applications/${applicationId}/accept-offer/`,
-        {
-          method: 'POST',
-        }
-      );
-
-      if (response) {
-        // Update the application status in the local state
-        setApplications(prev => 
-          prev.map(app => 
-            app.id === applicationId 
-              ? { ...app, status: 'offer_accepted' }
-              : app
-          )
-        );
-        toast.success('🎉 Congratulations! You\'ve accepted the offer!', {
-          duration: 5000,
-          description: "Get ready for your new internship journey!"
-        });
+  setRespondingToOffer(applicationId);
+  
+  try {
+    console.log(`Attempting to accept offer for application ID: ${applicationId}`);
+    
+    const response = await makeAuthenticatedRequest(
+      `${API_URL}/api/candidates/applications/${applicationId}/accept-offer/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Add empty body if your backend expects it
+        data: JSON.stringify({}),
       }
-    } catch (err) {
-      console.error('Error accepting offer:', err);
-      toast.error('Failed to accept offer. Please try again.');
-    } finally {
-      setRespondingToOffer(null);
+    );
+
+    console.log('Accept offer response:', response);
+
+    // Check for successful response
+    if (response && (response.status === 200 || response.status === 201)) {
+      // Update the application status in the local state
+      setApplications(prev => 
+        prev.map(app => 
+          app.id === applicationId 
+            ? { ...app, status: 'offer_accepted' }
+            : app
+        )
+      );
+      
+      toast.success('🎉 Congratulations! You\'ve accepted the offer!', {
+        duration: 5000,
+        description: "Get ready for your new internship journey!"
+      });
+    } else {
+      // Handle unexpected response status
+      console.error('Unexpected response status:', response?.status);
+      toast.error('Unexpected response from server. Please try again.');
     }
-  };
+  } catch (err) {
+    console.error('Error accepting offer - Full error:', err);
+    console.error('Error response:', err.response);
+    console.error('Error response data:', err.response?.data);
+    console.error('Error response status:', err.response?.status);
+    
+    // Get more specific error message
+    let errorMessage = 'Failed to accept offer. Please try again.';
+    
+    if (err.response?.data) {
+      // Check for different error response formats
+      if (typeof err.response.data === 'string') {
+        errorMessage = err.response.data;
+      } else if (err.response.data.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response.data.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response.data.detail) {
+        errorMessage = err.response.data.detail;
+      } else if (err.response.data.non_field_errors) {
+        errorMessage = err.response.data.non_field_errors[0];
+      } else {
+        errorMessage = `Server error: ${JSON.stringify(err.response.data)}`;
+      }
+    } else if (err.response?.status) {
+      switch (err.response.status) {
+        case 400:
+          errorMessage = 'Bad request. The application might not be in the correct state to accept the offer.';
+          break;
+        case 401:
+          errorMessage = 'Authentication failed. Please log in again.';
+          break;
+        case 403:
+          errorMessage = 'You don\'t have permission to accept this offer.';
+          break;
+        case 404:
+          errorMessage = 'Application not found. It might have been withdrawn.';
+          break;
+        case 409:
+          errorMessage = 'Conflict. The offer might have already been processed.';
+          break;
+        default:
+          errorMessage = `Server error (${err.response.status}). Please try again.`;
+      }
+    }
+    
+    toast.error(errorMessage);
+  } finally {
+    setRespondingToOffer(null);
+  }
+};
 
   // Deny offer
   const denyOffer = async (applicationId) => {
