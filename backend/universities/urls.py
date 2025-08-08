@@ -11,7 +11,8 @@ urlpatterns = [
     path('profile/', UniversityProfileView.as_view(), name='university-profile'),
     path('', UniversityListView.as_view(), name='university-list'),
     path('dashboard/stats/', UniversityDashboardView.as_view(), name='university-dashboard-stats'),
-    path('dashboard/students/', UniversityStudentProgressView.as_view(), name='university-dashboard-students'),
+    path('student-progress/', UniversityStudentProgressView.as_view(), name='university-student-progress'),
+    path('student-progress/<int:student_id>/', UniversityStudentProgressView.as_view(), name='university-student-progress-detail'),
     path('', include(router.urls)),
 ]
 

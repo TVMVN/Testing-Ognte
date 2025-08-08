@@ -88,31 +88,38 @@ class UniversityDashboardView(APIView):
             "average_match_score": round(matches.aggregate(Avg("total_score"))['total_score__avg'] or 0, 2),
             "top_industries": top_industries
         })
-
+    
+    
 class UniversityStudentProgressView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request, student_id=None):
         user = request.user
         university = getattr(user, 'university_profile', None)
 
         if not university:
             return Response({"detail": "Not a university user."}, status=403)
 
-        # Filter candidates who allowed visibility and are linked to this university
+        # Base candidate queryset
         candidates = Candidate.objects.filter(
             can_university_view=True,
             university=university
         )
 
-        # Optional filters
-        course = request.query_params.get('course')
-        year = request.query_params.get('year')
+        # If specific student_id is provided, filter to that candidate only
+        if student_id:
+            candidates = candidates.filter(id=student_id)
+            if not candidates.exists():
+                return Response({"detail": "Student not found or not visible."}, status=404)
 
-        if course:
-            candidates = candidates.filter(course__iexact=course)
-        if year:
-            candidates = candidates.filter(year=year)
+        # Optional filters for bulk view
+        if not student_id:
+            course = request.query_params.get('course')
+            year = request.query_params.get('year')
+            if course:
+                candidates = candidates.filter(course__iexact=course)
+            if year:
+                candidates = candidates.filter(year=year)
 
         total = candidates.count()
         with_resume = candidates.exclude(Q(resume='') | Q(resume__isnull=True)).count()
@@ -129,11 +136,8 @@ class UniversityStudentProgressView(APIView):
         matched = len(matched_candidate_ids)
         unmatched = total - matched
 
-        # Breakdown per student
-        latest_status = defaultdict(lambda: "none")  # default status if no application
-        status_priority = ['accepted', 'rejected', 'offered']  # in order of significance
-
-        # Get latest status per candidate
+        # Track latest status per candidate
+        latest_status = defaultdict(lambda: "none")
         for app in applications.order_by('candidate_id', '-applied_at'):
             cid = app.candidate_id
             if latest_status[cid] == "none":
@@ -142,6 +146,7 @@ class UniversityStudentProgressView(APIView):
         student_breakdown = []
         for c in candidates:
             student_breakdown.append({
+                "id": c.id,
                 "name": c.user.get_full_name(),
                 "email": c.user.email,
                 "resume": "yes" if c.resume else "no",
