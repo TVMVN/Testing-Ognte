@@ -143,7 +143,7 @@ class CandidateAcceptOfferView(generics.GenericAPIView):
         )
 
         candidate_profile = request.user.candidate_profile
-        if candidate_profile.allow_university_view and candidate_profile.university:
+        if candidate_profile.can_university_view and candidate_profile.university:
             send_mail(
                 subject="Candidate Accepted Offer",
                 message=f"{request.user.get_full_name()} has accepted a job offer for {application.job_post.title}.",

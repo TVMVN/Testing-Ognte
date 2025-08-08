@@ -18,7 +18,7 @@ class MyApplicationSerializer(serializers.ModelSerializer):
     job_post = JobPostingSerializer(read_only=True)
 
     class Meta:
-        model = Application
+        model = Application, Candidate
         fields = ['id', 'job_post', 'status', 'applied_at']
 
 
