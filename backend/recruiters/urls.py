@@ -27,6 +27,7 @@ urlpatterns = [
 
 
     path('accepted-candidates/', AcceptedCandidateListView.as_view(), name='accepted-candidates'),
+    
 
 ]
 

@@ -1,21 +1,25 @@
+# =============================
+# Imports
+# =============================
 from datetime import timedelta
-from django.utils.timezone import now
+
+from django.conf import settings
+from django.core.mail import send_mail
 from django.db.models import Count
 from django.db.models.functions import TruncDate
-from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
-from rest_framework import viewsets, permissions, status
-from rest_framework.response import Response
+from django.utils import timezone
+from django.utils.timezone import now
+
+from rest_framework import viewsets, generics, permissions, status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
-from django.conf import settings
-from .models import Recruiter
-from .permissions import IsRecruiterUser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from applications.models import JobPost, Application
-from .pagination import DefaultPagination
 from applications.serializers import (
     JobPostingSerializer,
     JobPostingCreateSerializer,
@@ -23,31 +27,20 @@ from applications.serializers import (
 )
 from matching.models import CandidateJobMatch
 from matching.serializers import CandidateJobMatchSerializer
-from rest_framework import generics, status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.core.mail import send_mail
-from django.shortcuts import get_object_or_404
 
-from applications.models import JobPost, Application
-from applications.serializers import JobPostingCreateSerializer, ApplicationSerializer
-
-from rest_framework import generics, permissions
-from applications.models import Application
+from .models import Recruiter
+from .pagination import DefaultPagination
+from .permissions import IsRecruiterUser
 from .serializers import AcceptedCandidateSerializer
 
-# -------------------------
-# Unified JobPost ViewSet
-# -------------------------
 
-
+# =============================
+# Job Post Management
+# =============================
 class UnifiedJobPostViewSet(viewsets.ModelViewSet):
     """
-    Handles both recruiter and candidate interactions with JobPost:
-    - Recruiters: Create, update, delete their own job posts
-    - Candidates: View only active jobs
+    Handles recruiter and candidate interactions with JobPost.
     """
-   
     pagination_class = DefaultPagination
 
     def get_serializer_class(self):
@@ -58,7 +51,7 @@ class UnifiedJobPostViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        # Recruiter: see all their jobs, with optional ?is_active=true/false filter
+        # Recruiter view
         if hasattr(user, 'recruiter_profile'):
             queryset = JobPost.objects.filter(recruiter=user.recruiter_profile)
             is_active = self.request.query_params.get('is_active')
@@ -66,7 +59,7 @@ class UnifiedJobPostViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(is_active=(is_active == 'true'))
             return queryset.order_by('-created_at')
 
-        # Candidate: see only active jobs
+        # Candidate view
         return JobPost.objects.filter(
             is_active=True,
             application_deadline__gte=timezone.now().date()
@@ -92,16 +85,14 @@ class UnifiedJobPostViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='top_jobs')
     def top_jobs(self, request):
-        """Return top 5 active jobs (for candidate dashboard)"""
+        """Return top 5 active jobs for candidate dashboard."""
         queryset = self.get_queryset().filter(is_active=True)[:5]
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='applications')
     def applications(self, request, pk=None):
-        """
-        View applications for a specific job (recruiters only)
-        """
+        """View applications for a specific job (recruiters only)."""
         job_post = get_object_or_404(JobPost, pk=pk)
         if not hasattr(request.user, 'recruiter_profile') or job_post.recruiter != request.user.recruiter_profile:
             return Response({'detail': 'Not authorized to view applications for this job.'},
@@ -114,9 +105,7 @@ class UnifiedJobPostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='toggle-active')
     def toggle_active_status(self, request, pk=None):
-        """
-        Allow recruiters to manually toggle a job post's active state
-        """
+        """Allow recruiters to manually toggle a job post's active state."""
         job = get_object_or_404(JobPost, pk=pk)
 
         if not hasattr(request.user, 'recruiter_profile') or job.recruiter != request.user.recruiter_profile:
@@ -130,32 +119,22 @@ class UnifiedJobPostViewSet(viewsets.ModelViewSet):
             'is_active': job.is_active,
             'message': f'Job post has been {"activated" if job.is_active else "deactivated"}.'
         })
-    
 
 
-# -----------------------------------------
-# Employer/Recruiter Analytics ViewSet
-# -----------------------------------------
-
+# =============================
+# Recruiter Analytics & Matches
+# =============================
 class EmployerAnalyticsViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated, IsRecruiterUser]
 
     @action(detail=False, methods=['get'])
     def analytics(self, request):
-        """
-        Returns analytics for the recruiter:
-        - Number of job posts
-        - Applications per job
-        - Weekly application trend
-        """
-        user = request.user
-        recruiter = getattr(user, 'recruiter', None)
-
+        """Returns recruiter analytics."""
+        recruiter = getattr(request.user, 'recruiter', None)
         if not recruiter:
             return Response({'error': 'Not an employer'}, status=403)
 
         jobs = JobPost.objects.filter(recruiter=recruiter)
-
         job_count = jobs.count()
         applications_per_job = {
             job.id: Application.objects.filter(job_post=job).count()
@@ -178,14 +157,9 @@ class EmployerAnalyticsViewSet(viewsets.ViewSet):
             'weekly_applications': list(weekly_applications),
         })
 
-# -----------------------------------------
-# Recruiter Dashboard Candidate Matches
-# -----------------------------------------
 
 class RecruiterDashboardMatchesView(APIView):
-    """
-    Fetch top matched candidates for all jobs posted by a recruiter
-    """
+    """Fetch top matched candidates for all jobs posted by a recruiter."""
     permission_classes = [IsAuthenticated, IsRecruiterUser]
 
     def get(self, request):
@@ -204,6 +178,10 @@ class RecruiterDashboardMatchesView(APIView):
 
         return Response({'recruiter_matches': results})
 
+
+# =============================
+# Recruiter Application Management
+# =============================
 class AllRecruiterApplicationsView(APIView):
     permission_classes = [IsAuthenticated, IsRecruiterUser]
 
@@ -216,14 +194,12 @@ class AllRecruiterApplicationsView(APIView):
 
 
 class RecruiterEditJobPostView(generics.RetrieveUpdateAPIView):
-    queryset = JobPost.objects.all()
     serializer_class = JobPostingCreateSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        try:
-            recruiter = self.request.user.recruiter_profile
-        except AttributeError:
+        recruiter = getattr(self.request.user, 'recruiter_profile', None)
+        if not recruiter:
             return JobPost.objects.none()
         return JobPost.objects.filter(recruiter=recruiter)
 
@@ -231,26 +207,18 @@ class RecruiterEditJobPostView(generics.RetrieveUpdateAPIView):
 class AcceptApplicationView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
-    
-class AcceptApplicationView(generics.GenericAPIView):
-    permission_classes = [IsAuthenticated]
-
     def post(self, request, pk):
-        try:
-            recruiter = request.user.recruiter_profile
-        except:
+        recruiter = getattr(request.user, 'recruiter_profile', None)
+        if not recruiter:
             return Response({'detail': 'User is not a recruiter.'}, status=403)
 
         application = get_object_or_404(Application, id=pk, job_post__recruiter=recruiter)
-
         if application.status == 'accepted':
             return Response({'detail': 'Application already accepted.'}, status=400)
 
-        # Update application status
         application.status = 'accepted'
         application.save()
 
-        # Prepare email
         candidate_email = application.candidate.user.email
         job_title = application.job_post.title
         accept_link = f"{settings.FRONTEND_URL}/api/candidates/applications/{application.id}/accept-offer/"
@@ -273,29 +241,18 @@ class AcceptApplicationView(generics.GenericAPIView):
 
         return Response({'detail': 'Application accepted and job offer sent to candidate.'})
 
-# 3. Reject Application
-class RejectApplicationView(generics.GenericAPIView):
-    permission_classes = [IsAuthenticated]
-
-    from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from applications.models import Application
 
 class RejectApplicationView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        try:
-            recruiter = request.user.recruiter_profile
-        except:
+        recruiter = getattr(request.user, 'recruiter_profile', None)
+        if not recruiter:
             return Response({'detail': 'User is not a recruiter.'}, status=403)
 
         application = get_object_or_404(Application, id=pk, job_post__recruiter=recruiter)
-
         if application.status == 'rejected':
-            return Response({'detail': 'Application is already rejected.'}, status=400)
+            return Response({'detail': 'Application already rejected.'}, status=400)
 
         application.status = 'rejected'
         application.save()
@@ -303,16 +260,18 @@ class RejectApplicationView(generics.GenericAPIView):
         return Response({'detail': 'Application rejected successfully.'})
 
 
-
-
+# =============================
+# Candidate Lists
+# =============================
 class AcceptedCandidateListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated, IsRecruiterUser]
     serializer_class = AcceptedCandidateSerializer
 
     def get_queryset(self):
-        # Only show accepted candidates for job posts owned by this recruiter
         recruiter = self.request.user.recruiter_profile
         return Application.objects.filter(
             job_post__recruiter=recruiter,
             status='accepted'
         ).select_related('candidate__user', 'job_post')
+
+

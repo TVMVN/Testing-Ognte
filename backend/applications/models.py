@@ -88,6 +88,8 @@ class Application(models.Model):
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
         ('rejected', 'Rejected'),
+        ('denied', 'Denied'),
+        ('withdrawn', 'Withdrawn')
     ]
 
     job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, related_name='applications')

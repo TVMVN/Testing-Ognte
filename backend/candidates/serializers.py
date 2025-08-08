@@ -8,18 +8,37 @@ import logging
 logger = logging.getLogger(__name__)
 
 class CandidateProfileSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+
+
+
     class Meta:
         model = Candidate
-        fields = ['id', 'resume', 'cover_letter', 'skills', 'resume_score']
+        fields = [ 
+            'id',
+            'first_name',
+            'last_name',
+            'email',
+            'resume',
+            'cover_letter',
+            'skills',
+            'resume_score',
+            'professional_title',
+            'university'
+        ]
         read_only_fields = ['id', 'skills', 'resume_score']
 
 
 class MyApplicationSerializer(serializers.ModelSerializer):
     job_post = JobPostingSerializer(read_only=True)
+    candidate_profile = CandidateProfileSerializer(read_only=True)
+
 
     class Meta:
-        model = Application, Candidate
-        fields = ['id', 'job_post', 'status', 'applied_at']
+        model = Application
+        fields = ['id', 'candidate_profile', 'job_post', 'status', 'applied_at']
 
 
 class ApplicationCreateSerializer(serializers.ModelSerializer):

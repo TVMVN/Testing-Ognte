@@ -4,6 +4,10 @@ from applications.models import JobPost
 from rest_framework import serializers
 from applications.models import Application
 
+from rest_framework import serializers
+from applications.models import Application
+
+
 class AcceptedCandidateSerializer(serializers.ModelSerializer):
     candidate_name = serializers.CharField(source='candidate.user.get_full_name')
     candidate_email = serializers.CharField(source='candidate.user.email')

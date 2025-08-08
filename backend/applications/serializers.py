@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import JobPost, Application, Salary
 from django.core.exceptions import PermissionDenied
-
+from users.models import User
+from candidates.models import Candidate
 
 # ---------------------------
 # Salary Serializer
@@ -123,8 +124,20 @@ class JobPostingCreateSerializer(serializers.ModelSerializer):
 # ---------------------------
 # Application Serializer (GET)
 # ---------------------------
+class CandidateUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name']
+
+class CandidateNestedSerializer(serializers.ModelSerializer):
+    user = CandidateUserSerializer()
+
+    class Meta:
+        model = Candidate
+        fields = ['user', 'professional_title', 'university', 'skills']
+
 class ApplicationSerializer(serializers.ModelSerializer):
-    candidate = serializers.SerializerMethodField()
+    candidate = CandidateNestedSerializer()
     job_post = JobNestedSerializer()
 
     class Meta:
@@ -134,9 +147,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'resume', 'cover_letter',
             'applied_at', 'status', 'duration_of_internship'
         ]
-    
-    def get_candidate(self, obj):
-        return str(obj.candidate.user.get_full_name()) if obj.candidate else None
+
 
 
 # ---------------------------

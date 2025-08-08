@@ -73,7 +73,7 @@ class CandidateStatsView(APIView):
     permission_classes = [IsAuthenticated, IsCandidateUser]
 
     def get(self, request):
-        candidate = request.user.candidate_profile.first()
+        candidate = request.user.candidate_profile
         applications = Application.objects.filter(candidate=candidate)
         matches = CandidateJobMatch.objects.filter(candidate=candidate)
 
