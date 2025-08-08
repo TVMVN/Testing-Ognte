@@ -3,6 +3,13 @@ from .models import JobPost, Application, Salary
 from django.core.exceptions import PermissionDenied
 from users.models import User
 from candidates.models import Candidate
+from universities.models import University
+from recruiters.models import Recruiter
+
+
+from .models import Application
+from candidates.nested_serializers import CandidateMiniSerializer
+from recruiters.nested_serializers import RecruiterMiniSerializer
 
 # ---------------------------
 # Salary Serializer
@@ -124,12 +131,13 @@ class JobPostingCreateSerializer(serializers.ModelSerializer):
 # ---------------------------
 # Application Serializer (GET)
 # ---------------------------
+
 class CandidateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name', 'last_name']
+        fields = ['first_name', 'last_name', 'email']
 
-class CandidateNestedSerializer(serializers.ModelSerializer):
+class CandidateSerializer(serializers.ModelSerializer):
     user = CandidateUserSerializer()
 
     class Meta:
@@ -137,18 +145,22 @@ class CandidateNestedSerializer(serializers.ModelSerializer):
         fields = ['user', 'professional_title', 'university', 'skills']
 
 class ApplicationSerializer(serializers.ModelSerializer):
-    candidate = CandidateNestedSerializer()
+    candidate = CandidateMiniSerializer()
     job_post = JobNestedSerializer()
+    recruiter = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
         fields = [
-            'id', 'candidate', 'job_post',
-            'resume', 'cover_letter',
-            'applied_at', 'status', 'duration_of_internship'
+            'id', 'candidate', 'job_post', 'recruiter',
+            'resume', 'cover_letter', 'applied_at',
+            'status', 'duration_of_internship'
         ]
 
-
+    def get_recruiter(self, obj):
+        if hasattr(obj.job_post, 'recruiter'):
+            return RecruiterMiniSerializer(obj.job_post.recruiter).data
+        return None
 
 # ---------------------------
 # Application Creation Serializer (POST)

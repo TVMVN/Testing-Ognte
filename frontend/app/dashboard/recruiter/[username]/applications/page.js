@@ -308,9 +308,9 @@ export default function RecruiterApplicationsPage() {
       const candidate = app.candidate;
       const jobPost = app.job_post;
       const searchFields = [
-        candidate?.user?.first_name,
-        candidate?.user?.last_name,
-        candidate?.user?.email,
+        candidate?.first_name,
+        candidate?.last_name,
+        candidate?.email,
         candidate?.professional_title,
         candidate?.university,
         candidate?.skills?.join(' '),
