@@ -132,18 +132,6 @@ class JobPostingCreateSerializer(serializers.ModelSerializer):
 # Application Serializer (GET)
 # ---------------------------
 
-class CandidateUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['first_name', 'last_name', 'email']
-
-class CandidateSerializer(serializers.ModelSerializer):
-    user = CandidateUserSerializer()
-
-    class Meta:
-        model = Candidate
-        fields = ['user', 'professional_title', 'university', 'skills']
-
 class ApplicationSerializer(serializers.ModelSerializer):
     candidate = CandidateMiniSerializer()
     job_post = JobNestedSerializer()
@@ -161,6 +149,60 @@ class ApplicationSerializer(serializers.ModelSerializer):
         if hasattr(obj.job_post, 'recruiter'):
             return RecruiterMiniSerializer(obj.job_post.recruiter).data
         return None
+
+class ApplicationFlatSerializer(serializers.ModelSerializer):
+    # Candidate fields (flattened)
+    candidate_first_name = serializers.CharField(source='candidate.user.first_name')
+    candidate_last_name = serializers.CharField(source='candidate.user.last_name')
+    candidate_university_name = serializers.CharField(source='candidate.university.name')
+    # Add more candidate fields here if needed, e.g., professional_title, skills
+
+    # Job post fields (flattened)
+    job_post_title = serializers.CharField(source='job_post.title')
+    job_post_location = serializers.CharField(source='job_post.location')
+    job_post_industry = serializers.SerializerMethodField()
+
+    # Recruiter fields (flattened)
+    recruiter_name = serializers.SerializerMethodField()
+    recruiter_industry = serializers.SerializerMethodField()
+
+    # Other application fields
+    resume = serializers.CharField()
+    cover_letter = serializers.CharField()
+    applied_at = serializers.DateTimeField()
+    status = serializers.CharField()
+    duration_of_internship = serializers.IntegerField()
+
+    class Meta:
+        model = Application
+        fields = [
+            'id',
+            'candidate_first_name',
+            'candidate_last_name',
+            'candidate_university_name',
+            'job_post_title',
+            'job_post_location',
+            'job_post_industry',
+            'recruiter_name',
+            'recruiter_industry',
+            'resume',
+            'cover_letter',
+            'applied_at',
+            'status',
+            'duration_of_internship',
+        ]
+
+    def get_job_post_industry(self, obj):
+        # Defensive fallback if industry is missing
+        return getattr(obj.job_post, 'industry', '') or ''
+
+    def get_recruiter_name(self, obj):
+        recruiter = getattr(obj.job_post, 'recruiter', None)
+        return recruiter.name if recruiter and hasattr(recruiter, 'name') else ''
+
+    def get_recruiter_industry(self, obj):
+        recruiter = getattr(obj.job_post, 'recruiter', None)
+        return recruiter.industry if recruiter and hasattr(recruiter, 'industry') else ''
 
 # ---------------------------
 # Application Creation Serializer (POST)

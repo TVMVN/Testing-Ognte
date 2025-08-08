@@ -23,7 +23,8 @@ from applications.models import JobPost, Application
 from applications.serializers import (
     JobPostingSerializer,
     JobPostingCreateSerializer,
-    ApplicationSerializer
+    ApplicationSerializer,
+    ApplicationFlatSerializer
 )
 from matching.models import CandidateJobMatch
 from matching.serializers import CandidateJobMatchSerializer
@@ -189,7 +190,7 @@ class AllRecruiterApplicationsView(APIView):
         recruiter = request.user.recruiter_profile
         job_posts = JobPost.objects.filter(recruiter=recruiter)
         applications = Application.objects.filter(job_post__in=job_posts).select_related('candidate', 'job_post')
-        serializer = ApplicationSerializer(applications, many=True)
+        serializer = ApplicationFlatSerializer(applications, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
