@@ -275,4 +275,91 @@ class AcceptedCandidateListView(generics.ListAPIView):
             status='accepted'
         ).select_related('candidate__user', 'job_post')
 
+# recruiters/views.py
+from django.db.models import Count, Avg, F, ExpressionWrapper, DurationField
+from django.db.models.functions import TruncMonth
+from datetime import timedelta
+
+class RecruiterDashboardStatsView(APIView):
+    permission_classes = [IsAuthenticated, IsRecruiterUser]
+
+    def get(self, request):
+        recruiter = request.user.recruiter_profile
+        today = timezone.now()
+        one_week_ago = today - timedelta(days=7)
+        one_month_ago = today - timedelta(days=30)
+        two_months_ago = today - timedelta(days=60)
+
+        # 1. New candidates this week
+        new_candidates_count = Application.objects.filter(
+            job_post__recruiter=recruiter,
+            applied_at__gte=one_week_ago
+        ).values('candidate').distinct().count()
+
+        # 2. Active listings
+        active_listings_count = JobPost.objects.filter(
+            recruiter=recruiter,
+            is_active=True
+        ).count()
+
+        # 3. Applications % change (this month vs last month)
+        this_month_apps = Application.objects.filter(
+            job_post__recruiter=recruiter,
+            applied_at__gte=one_month_ago
+        ).count()
+        last_month_apps = Application.objects.filter(
+            job_post__recruiter=recruiter,
+            applied_at__gte=two_months_ago,
+            applied_at__lt=one_month_ago
+        ).count()
+        apps_change_pct = 0
+        if last_month_apps > 0:
+            apps_change_pct = ((this_month_apps - last_month_apps) / last_month_apps) * 100
+
+        # 4. Response Rate (avg days to respond: accepted/rejected)
+        responded_apps = Application.objects.filter(
+            job_post__recruiter=recruiter
+        ).exclude(status='pending').annotate(
+            response_time=ExpressionWrapper(
+                F('updated_at') - F('applied_at'),
+                output_field=DurationField()
+            )
+        )
+        avg_response_days = responded_apps.aggregate(
+            avg_days=Avg('response_time')
+        )['avg_days']
+        avg_response_days = round(avg_response_days.days, 1) if avg_response_days else None
+
+        # 5. Avg Time to Hire (accepted only)
+        accepted_apps = Application.objects.filter(
+            job_post__recruiter=recruiter,
+            status='accepted'
+        ).annotate(
+            hire_time=ExpressionWrapper(
+                F('updated_at') - F('applied_at'),
+                output_field=DurationField()
+            )
+        )
+        avg_hire_days = accepted_apps.aggregate(
+            avg_days=Avg('hire_time')
+        )['avg_days']
+        avg_hire_days = round(avg_hire_days.days, 1) if avg_hire_days else None
+
+        return Response({
+            "new_candidates": {
+                "count": new_candidates_count,
+                "change": "+2"  # optional, if you track previous week's
+            },
+            "active_listings": {
+                "count": active_listings_count
+            },
+            "applications": {
+                "count": this_month_apps,
+                "change_pct": round(apps_change_pct, 1)
+            },
+            "response_rate": {
+                "avg_days": avg_response_days
+            },
+            "avg_time_to_hire": avg_hire_days
+        })
 

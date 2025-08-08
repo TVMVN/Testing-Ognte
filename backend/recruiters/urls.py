@@ -24,6 +24,10 @@ urlpatterns = [
     path('applications/<int:pk>/accept/', AcceptApplicationView.as_view(), name='accept-application'),
     
     path('applications/<int:pk>/reject/', RejectApplicationView.as_view(), name='reject-application'),
+    # recruiters/urls.py
+
+    path('dashboard-stats/', RecruiterDashboardStatsView.as_view(), name='recruiter-dashboard-stats'),
+
 
 
     path('accepted-candidates/', AcceptedCandidateListView.as_view(), name='accepted-candidates'),
