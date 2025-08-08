@@ -69,7 +69,7 @@ class UniversityDashboardView(APIView):
     permission_classes = [IsAuthenticated, IsUniversityUser]
 
     def get(self, request):
-        university = request.user.university_profile.first()
+        university = request.user.university_profile
         candidates = Candidate.objects.filter(university=university)
         applications = Application.objects.filter(candidate__in=candidates)
         matches = CandidateJobMatch.objects.filter(candidate__in=candidates)
