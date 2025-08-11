@@ -1,155 +1,300 @@
-from rest_framework import viewsets, permissions, filters as drf_filters
-from rest_framework.decorators import action
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
+from django.db.models import Count
 from django.utils.timezone import now
-from django.db.models import Q, Count
-from django.http import HttpResponse
-import csv
-from datetime import datetime
+from datetime import timedelta
+from .permissions import IsUniversityUser
 
 from candidates.models import Candidate
+from applications.models import Application, JobPost
+
+
+
+from django.db.models import Count, Q, F
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import viewsets, permissions
 from applications.models import Application
-from recruiters.models import Recruiter
-from applications.models import JobPost
+from candidates.models import Candidate
 
 
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = 'page_size'
-    max_page_size = 100
+from rest_framework import viewsets, permissions
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db.models import Count, Q
+from recruiters.models import Recruiter  
+from applications.models import JobPost, Application
+
+class UniversityDashboardView(APIView):
+    permission_classes = [IsAuthenticated, IsUniversityUser]
+
+    def get(self, request):
+        university = request.user.university_profile
+
+        # === CORE METRICS ===
+        total_students = Candidate.objects.filter(university=university).count()
+
+        total_applications = Application.objects.filter(
+            candidate__university=university
+        ).count()
+
+        accepted_applications = Application.objects.filter(
+            candidate__university=university,
+            status='accepted'
+        ).count()
+
+        success_rate = (accepted_applications / total_applications * 100) if total_applications > 0 else 0
+
+        active_jobs = JobPost.objects.filter(is_active=True).count()
+
+        # === APPLICATION TREND (Last Month vs This Month) ===
+        now_date = now()
+        current_month_apps = Application.objects.filter(
+            candidate__university=university,
+            applied_at__year=now_date.year,
+            applied_at__month=now_date.month
+        ).count()
+
+        last_month_date = (now_date.replace(day=1) - timedelta(days=1))
+        last_month_apps = Application.objects.filter(
+            candidate__university=university,
+            applied_at__year=last_month_date.year,
+            applied_at__month=last_month_date.month
+        ).count()
+
+        if last_month_apps == 0:
+            trend_percent = 100 if current_month_apps > 0 else 0
+        else:
+            trend_percent = ((current_month_apps - last_month_apps) / last_month_apps) * 100
+
+        trend_label = f"{trend_percent:.0f}% {'increase' if trend_percent >= 0 else 'decrease'} from last month"
+
+        # === TOP HIRING INDUSTRIES ===
+        top_industries = (
+            JobPost.objects
+            .filter(applications__candidate__university=university)
+            .values("industry")
+            .annotate(jobs=Count("id", distinct=True))
+            .order_by("-jobs")[:5]
+        )
+
+            # === TOP HIRING INDUSTRIES (last 3 months) ===
+        three_months_ago = now_date - timedelta(days=90)
+        top_industries = (
+            JobPost.objects
+            .filter(
+                applications__candidate__university=university,
+                applications__applied_at__gte=three_months_ago
+            )
+            .values("industry")
+            .annotate(jobs=Count("id", distinct=True))
+            .order_by("-jobs")[:5]
+        )
+
+        # === MONTHLY ENGAGEMENT ===
+        monthly_labels = []
+        monthly_applications = []
+        monthly_engagement = []
+
+        current_year = now_date.year
+        for month in range(1, 13):
+            month_name = now_date.replace(month=month, day=1).strftime("%b")
+            monthly_labels.append(month_name)
+
+            # Applications per month
+            apps_count = Application.objects.filter(
+                candidate__university=university,
+                applied_at__year=current_year,
+                applied_at__month=month
+            ).count()
+            monthly_applications.append(apps_count)
+
+            # Engagement = unique active students
+            engaged_students = Candidate.objects.filter(
+                university=university,
+                application__applied_at__year=current_year,
+                application__applied_at__month=month
+            ).distinct().count()
+            monthly_engagement.append(engaged_students)
+
+        # === TOP STUDENTS ===
+        top_students_qs = (
+            Application.objects
+            .filter(candidate__university=university)
+            .values(
+                "candidate__user__first_name",
+                "candidate__user__last_name",
+                "status",
+                "job_post__title",
+                "candidate__course"
+            )
+            .annotate(app_count=Count("id"))
+            .order_by("-app_count")[:10]
+        )
+
+        top_students = [
+            {
+                "name": f"{s['candidate__user__first_name']} {s['candidate__user__last_name']}",
+                "status": s["status"].capitalize(),
+                "job_title": s["job_post__title"],
+                "course": s["candidate__course"]
+            }
+            for s in top_students_qs
+        ]
+
+        # === RESPONSE PAYLOAD ===
+        return Response({
+            "welcome_message": f"Welcome back, {university.name} Admin! 👋",
+            "sub_message": f"Here's what's happening at {university.name} today",
+            "stats": {
+                "total_students": total_students,
+                "applications": total_applications,
+                "success_rate": f"{success_rate:.0f}%",
+                "active_jobs": active_jobs
+            },
+            "application_overview": {
+                "description": "Student application breakdown",
+                "total_students": total_students,
+                "trend": trend_label
+            },
+            "top_industries": list(top_industries),
+            "monthly_engagement": {
+                "labels": monthly_labels,
+                "applications": monthly_applications,
+                "engagement": monthly_engagement
+            },
+            "student_performance": {
+                "description": "Detailed breakdown of student achievements and progress",
+                "top_students": top_students
+            }
+        })
 
 
 class OverseerViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.IsAdminUser]
-    pagination_class = StandardResultsSetPagination
-
-    def filter_by_date(self, queryset, request):
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-        if start_date:
-            queryset = queryset.filter(created_at__date__gte=start_date)
-        if end_date:
-            queryset = queryset.filter(created_at__date__lte=end_date)
-        return queryset
-
-    def export_as_csv(self, data, fieldnames):
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="insights.csv"'
-
-        writer = csv.DictWriter(response, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in data:
-            writer.writerow(row)
-
-        return response
-
-    def get_registered_candidates(self, request):
-        """Returns only candidates registered with overseer, filtered by optional date."""
-        queryset = Candidate.objects.filter(registered_with_overseer=True)
-        return self.filter_by_date(queryset, request)
+    permission_classes = [IsAuthenticated, IsUniversityUser]  # Ensure user is logged in
 
     @action(detail=False, methods=['get'])
-    def employment_insights(self, request):
-        candidates = self.get_registered_candidates(request)
+    def student_activity_dashboard(self, request):
+        # Get university linked to logged-in admin
+        university = getattr(request.user, "university_profile", None)
+        if not university:
+            return Response({"error": "No university linked to this account"}, status=403)
 
-        employed_count = Application.objects.filter(
-            status='accepted',
-            candidate__in=candidates
-        ).count()
+        # Annotate students with count of accepted offers
+        students = Candidate.objects.filter(university=university).annotate(
+            accepted_offers=Count(
+                'applications',
+                filter=Q(applications__status='accepted'),
+                distinct=True
+            )
+        )
 
-        no_resume_count = candidates.filter(Q(resume__isnull=True) | Q(resume='')).count()
-        seeking_jobs_count = candidates.filter(seeking_job=True).count()
+        # Categorization
+        top_performers_qs = students.filter(accepted_offers__gte=2)
+        average_qs = students.filter(accepted_offers=1)
+        needs_support_qs = students.filter(accepted_offers=0)
 
-        lacking_skills = 0
-        for candidate in candidates:
-            if not candidate.skills:
-                lacking_skills += 1
-            else:
-                has_skills = any(
-                    job.skills and skill.lower() in job.skills.lower()
-                    for skill in candidate.skills.split(',')
-                    for job in JobPost.objects.filter(is_active=True)
-                )
-                if not has_skills:
-                    lacking_skills += 1
+        total_students = students.count()
+        top_performers = top_performers_qs.count()
+        average_performers = average_qs.count()
+        needs_support = needs_support_qs.count()
 
-        insights = {
-            "employed": employed_count,
-            "no_resume": no_resume_count,
-            "seeking_jobs": seeking_jobs_count,
-            "lacking_skills": lacking_skills,
-        }
+        success_rate = round((top_performers / total_students) * 100, 2) if total_students else 0
 
-        if request.query_params.get('format') == 'csv':
-            return self.export_as_csv([insights], list(insights.keys()))
+        def get_student_list(qs):
+            return list(qs.order_by("-accepted_offers").values(
+                name=F('user__first_name'),  # change to full name if needed
+                status=F('accepted_offers'),
+                job_title=F('professional_title'),
+                course=F('degree')
+            )[:10])
 
-        return Response(insights)
-
-    @action(detail=False, methods=['get'])
-    def recruiters_by_interns(self, request):
-        month = request.query_params.get('month')
-        year = request.query_params.get('year')
-
-        qs = Recruiter.objects.annotate(
-            intern_count=Count('jobpost__applications', filter=Q(jobpost__applications__job_type='intern'))
-        ).filter(intern_count__gt=0)
-
-        if month and year:
-            qs = qs.filter(jobpost__created_at__month=month, jobpost__created_at__year=year)
-
-        data = [
-            {
-                "recruiter": recruiter.user.get_full_name() or recruiter.user.username,
-                "interns_recruited": recruiter.intern_count
+        data = {
+            "summary": {
+                "total_students": total_students,
+                "top_performers": top_performers,
+                "average_performers": average_performers,
+                "needs_support": needs_support,
+                "success_rate": f"{success_rate}%",
+                "performance_rate": f"{success_rate}%"
+            },
+            "students": {
+                "top_performing_students": get_student_list(top_performers_qs),
+                "average_students": get_student_list(average_qs),
+                "below_average_students": get_student_list(needs_support_qs)
             }
-            for recruiter in qs
-        ]
-
-        if request.query_params.get('format') == 'csv':
-            return self.export_as_csv(data, ["recruiter", "interns_recruited"])
+        }
 
         return Response(data)
 
+
+
+class RecruiterEngagementHubViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
     @action(detail=False, methods=['get'])
-    def detailed_breakdown(self, request):
-        candidates = self.get_registered_candidates(request)
+    def dashboard(self, request):
+        university = getattr(request.user, 'university_profile', None)
+        if not university:
+            return Response({"detail": "Only university accounts can access this endpoint."}, status=403)
 
-        first_10_employed = Application.objects.filter(
-            status='accepted',
-            candidate__in=candidates
-        ).order_by('applied_at')[:10]
+        # All jobs linked to this university's students
+        jobs_qs = JobPost.objects.filter(
+            applications__candidate__university=university
+        ).distinct()
 
-        have_skills_resume = candidates.filter(~Q(resume=''), ~Q(skills=''))\
-            .exclude(application__status='accepted')\
-            .distinct()
+        recruiters_qs = Recruiter.objects.filter(
+            job_posts__in=jobs_qs
+        ).distinct()
 
-        no_job_no_resume_or_skills = candidates.filter(Q(resume='') | Q(resume__isnull=True))\
-            .filter(Q(skills='') | Q(skills__isnull=True))\
-            .exclude(application__status='accepted')\
-            .distinct()
+        # === OVERVIEW METRICS ===
+        total_recruiters = recruiters_qs.count()
 
-        result = {
-            "first_10_employed": [
-                {
-                    "name": a.candidate.user.get_full_name(),
-                    "email": a.candidate.user.email,
-                    "applied_at": a.applied_at
-                } for a in first_10_employed
-            ],
-            "have_skills_and_resume_but_unemployed": [
-                {
-                    "name": c.user.get_full_name(),
-                    "email": c.user.email,
-                    "skills": c.skills
-                } for c in have_skills_resume
-            ],
-            "no_skills_and_resume_and_unemployed": [
-                {
-                    "name": c.user.get_full_name(),
-                    "email": c.user.email
-                } for c in no_job_no_resume_or_skills
-            ]
-        }
+        active_jobs_qs = jobs_qs.filter(is_active=True)
+        active_jobs_count = active_jobs_qs.count()
 
-        return Response(result)
+        active_partnerships = recruiters_qs.filter(
+            job_posts__in=active_jobs_qs
+        ).distinct().count()
+
+        jobs_with_apps = active_jobs_qs.annotate(
+            app_count=Count('applications')
+        ).filter(app_count__gt=0)
+
+        avg_engagement = (
+            (jobs_with_apps.count() / active_jobs_count) * 100 if active_jobs_count > 0 else 0
+        )
+
+        top_industry = recruiters_qs.values('industry')\
+                                    .annotate(cnt=Count('id'))\
+                                    .order_by('-cnt')\
+                                    .first()
+
+        # === MOST HIRING ===
+        most_hiring = recruiters_qs.filter(
+            job_posts__applications__candidate__university=university,
+            job_posts__applications__status='accepted'
+        ).annotate(
+            accepted_offers=Count(
+                'job_posts__applications',
+                filter=Q(job_posts__applications__status='accepted')
+            )
+        ).order_by('-accepted_offers')
+
+        most_hiring_data = [{
+            "recruiter": rec.recruiter_name or rec.user.get_full_name() or rec.user.username,
+            "accepted_offers": rec.accepted_offers
+        } for rec in most_hiring]
+
+        # === FINAL RESPONSE ===
+        return Response({
+            "overview": {
+                "total_recruiters": total_recruiters,
+                "active_partnerships": active_partnerships,
+                "active_jobs": active_jobs_count,
+                "avg_engagement": avg_engagement,
+                "top_industry": top_industry['industry'] if top_industry else None
+            },
+            "most_hiring": most_hiring_data
+        })
