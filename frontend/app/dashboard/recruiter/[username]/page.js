@@ -181,6 +181,15 @@ export default function RecruiterDashboard() {
     // '₦': <Naira size={16} />,
   };
 
+  const [dashboardStats, setDashboardStats] = useState({
+  new_candidates: { count: 0, change: "0" },
+  active_listings: { count: 0 },
+  applications: { count: 0, change_pct: 0 },
+  response_rate: { avg_days: 0 },
+  avg_time_to_hire: 1
+});
+const [statsLoading, setStatsLoading] = useState(true);
+
   // Enhanced form state for internship posting
 const [form, setForm] = useState({
   employer: '',
@@ -352,6 +361,87 @@ const [form, setForm] = useState({
       throw error;
     }
   };
+
+  const fetchDashboardStats = async () => {
+  setStatsLoading(true);
+  try {
+    const res = await makeAuthenticatedRequest(
+      `${BACKEND_URL}/api/recruiters/dashboard-stats/`, 
+      { method: 'GET' }
+    );
+
+    if (!res) return;
+
+    if (res.ok) {
+      const data = await res.json();
+      setDashboardStats(data);
+    } else {
+      throw { response: { status: res.status } };
+    }
+  } catch (err) {
+    ErrorHandler.showErrorToast(err, 'Fetching dashboard statistics');
+    // Keep default values on error
+  } finally {
+    setStatsLoading(false);
+  }
+};
+
+// Update your useEffect to fetch stats along with profile
+useEffect(() => {
+  if (!username) return;
+
+  const fetchData = async () => {
+    setProfileLoading(true);
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        ErrorHandler.showErrorToast(
+          { response: { status: 401 } }, 
+          'Profile fetch - no token'
+        );
+        router.push('/login');
+        return;
+      }
+
+      // Fetch both profile and stats concurrently
+      const [profileRes, statsRes] = await Promise.all([
+        makeAuthenticatedRequest(`${BACKEND_URL}/api/recruiters/profile/`, { method: 'GET' }),
+        makeAuthenticatedRequest(`${BACKEND_URL}/api/recruiters/dashboard-stats/`, { method: 'GET' })
+      ]);
+
+      // Handle profile response
+      if (profileRes && profileRes.ok) {
+        const profileData = await profileRes.json();
+        setProfilePic(profileData.logo);
+        setEmail(profileData.user.email);
+        setSite(profileData.website);
+        setFirstName(profileData.user.first_name);
+        setCompanyName(profileData.company_name);
+        setForm(prev => ({ ...prev, employer: profileData.company_name || '' }));
+      } else if (profileRes) {
+        throw { response: { status: profileRes.status } };
+      }
+
+      // Handle stats response
+      if (statsRes && statsRes.ok) {
+        const statsData = await statsRes.json();
+        setDashboardStats(statsData);
+      } else {
+        console.warn('Failed to fetch dashboard stats, using defaults');
+      }
+      
+    } catch (err) {
+      ErrorHandler.showErrorToast(err, 'Fetching dashboard data');
+    } finally {
+      setProfileLoading(false);
+      setStatsLoading(false);
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [username, router]);
+
 
   const handleOnChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -587,7 +677,7 @@ const internshipData = {
         <div className="flex items-center gap-2">
           <Link href={"/"}>
             <h1 className="text-xl font-bold text-white">
-              OG<span className="text-[#25d442]">nite</span>
+              OG<span className="text-black">nite</span>
             </h1>
           </Link>
         </div>
@@ -973,84 +1063,103 @@ const internshipData = {
           </Dialog>
         </div>
          <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* <Link href={`/dashboard/recruiter/${username}/listings`}> */}
-            <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
-              
-              <div className="flex flex-row gap-[80%]">
-              <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
-                <Briefcase className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
-              </div>
-              <div className="text-right">
-              <h1 className="font-bold text-2xl">
-                12
-              </h1>
-              <p className="text-green-900 text-xs">+2 this week</p>
-              </div>
-              </div>
-              <h3 className="text-xl font-semibold">Active Listings</h3>
-              {/* <p className="text-gray-700">Manage your active job listings.</p> */}
-            </div>
+  {/* Active Listings Card */}
+  <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
+    <div className="flex flex-row gap-[80%]">
+      <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
+        <Briefcase className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
+      </div>
+      <div className="text-right">
+        <h1 className="font-bold text-2xl">
+          {statsLoading ? (
+            <div className="animate-pulse h-8 bg-gray-200 rounded w-8"></div>
+          ) : (
+            dashboardStats.active_listings.count
+          )}
+        </h1>
+        <p className="text-green-900 text-xs">
+          {statsLoading ? '' : 'Active listings'}
+        </p>
+      </div>
+    </div>
+    <h3 className="text-xl font-semibold">Active Listings</h3>
+  </div>
 
-          {/* </Link> */}
+  {/* Applications Card */}
+  <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
+    <div className="flex flex-row gap-[80%]">
+      <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
+        <Users className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
+      </div>
+      <div className="text-right">
+        <h1 className="font-bold text-2xl">
+          {statsLoading ? (
+            <div className="animate-pulse h-8 bg-gray-200 rounded w-8"></div>
+          ) : (
+            dashboardStats.applications.count
+          )}
+        </h1>
+        <p className="text-green-900 text-xs">
+          {statsLoading ? '' : (
+            dashboardStats.applications.change_pct > 0 
+              ? `+${dashboardStats.applications.change_pct}% this week`
+              : dashboardStats.applications.change_pct < 0 
+                ? `${dashboardStats.applications.change_pct}% this week`
+                : 'No change this week'
+          )}
+        </p>
+      </div>
+    </div>
+    <h3 className="text-xl font-semibold">Applications</h3>
+  </div>
 
-          {/* <Link href={`/dashboard/recruiter/${username}/applications`}> */}
-            <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
-              
-              <div className="flex flex-row gap-[80%]">
-              <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
-                <Users className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
-              </div>
-              <div className="text-right">
-              <h1 className="font-bold text-2xl">
-                48
-              </h1>
-              <p className="text-green-900 text-xs">+15 this week</p>
-              </div>
-              </div>
-              <h3 className="text-xl font-semibold">Applications</h3>
-              {/* <p className="text-gray-700">Manage your active job listings.</p> */}
-            </div>
-          {/* </Link> */}
+  {/* New Candidates Card */}
+  <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
+    <div className="flex flex-row gap-[90%]">
+      <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
+        <TrendingUp className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
+      </div>
+      <div className="text-right">
+        <h1 className="font-bold text-2xl">
+          {statsLoading ? (
+            <div className="animate-pulse h-8 bg-gray-200 rounded w-8"></div>
+          ) : (
+            dashboardStats.new_candidates.count
+          )}
+        </h1>
+        <p className="text-green-900 text-xs">
+          {statsLoading ? '' : dashboardStats.new_candidates.change}
+        </p>
+      </div>
+    </div>
+    <h3 className="text-xl font-semibold">New Candidates</h3>
+  </div>
 
-          {/* <Link href={`/dashboard/recruiter/${username}/applications`}> */}
-            <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
-              
-              <div className="flex flex-row  gap-[78%]">
-              <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
-              </div>
-              <div className="text-right">
-              <h1 className="font-bold text-2xl">
-                89%
-              </h1>
-              <p className="text-green-900  text-xs">+5% this month</p>
-              </div>
-              </div>
-              <h3 className="text-xl font-semibold">Response Rate</h3>
-              {/* <p className="text-gray-700">Manage your active job listings.</p> */}
-            </div>
-          {/* </Link> */}
+  {/* Average Time to Hire Card */}
+  <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
+    <div className="flex flex-row gap-[82%]">
+      <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
+        <Clock className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
+      </div>
+      <div className="text-right">
+        <h1 className="font-bold text-2xl">
+          {statsLoading ? (
+            <div className="animate-pulse h-8 bg-gray-200 rounded w-8"></div>
+          ) : (
+            <>
+              {dashboardStats.avg_time_to_hire} <span className="text-gray-500 text-sm">days</span>
+            </>
+          )}
+        </h1>
+        <p className="text-green-900 text-xs">
+          {statsLoading ? '' : 'Average hiring time'}
+        </p>
+      </div>
+    </div>
+    <h3 className="text-xl font-semibold">Avg. Time To Hire</h3>
+  </div>
 
-          {/* <Link href={`/dashboard/recruiter/${username}/applications`}> */}
-            <div className="bg-white cursor-pointer border rounded-xl p-6 shadow-sm hover:shadow-md dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-shadow">
-              
-              <div className="flex flex-row gap-[82%]">
-              <div className="p-2 mb-2 bg-emerald-50 w-[7%] text-center flex justify-center dark:bg-emerald-900/30 rounded-lg">
-                <Clock className="h-6 w-6 text-emerald-600 dark:text-emerald-400"/>
-              </div>
-              <div className="text-right">
-              <h1 className="font-bold text-2xl">
-                14 <span className="text-gray-500 text-sm">days</span>
-              </h1>
-              <p className="text-green-900 text-xs">-2 days</p>
-              </div>
-              </div>
-              <h3 className="text-xl font-semibold">Avg. Time To Hire</h3>
-              {/* <p className="text-gray-700">Manage your active job listings.</p> */}
-            </div>
-          {/* </Link> */}
-
-              <div className="lg:col-span-2 space-y-6">
+<div className="lg:col-span-2 space-y-6">
                 <div className={`dark:bg-gray-800 border-gray-200 dark:border-gray-700 bg-white border rounded-xl p-6 shadow-sm`}>
                   <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                     <Briefcase className="h-5 w-5 text-emerald-600" />
@@ -1084,14 +1193,7 @@ const internshipData = {
                     {/* </Link> */}
                   </div>
                 </div>
-              </div>
-
-        
-
-
-
-          
-        </section>
+              </div></section>
                   <div className={`dark:bg-gray-800 border-gray-200 dark:border-gray-700 bg-white border mt-5 mb-5 border rounded-xl p-6 shadow-sm`}>
               <h2 className="text-xl font-semibold mb-4">Frequently Asked Questions</h2>
               <div className="space-y-4">
