@@ -192,6 +192,46 @@ class CandidateDenyOfferView(generics.GenericAPIView):
         return Response({'detail': 'Offer denied. Recruiter notified.'})
 
 
+class CandidateWithdrawView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated, IsCandidateUser]
+
+    def post(self, request, pk):
+        application = get_object_or_404(Application, id=pk, candidate=request.user.candidate_profile)
+
+        # If application is already withdrawn
+        if application.status == 'withdrawn':
+            return Response({'detail': 'Application already withdrawn.'}, status=400)
+
+        # Prevent withdrawing after offer accepted
+        if application.status == 'accepted':
+            return Response({'detail': 'You cannot withdraw an accepted application.'}, status=400)
+
+        # Update status to withdrawn
+        application.status = 'withdrawn'
+        application.save()
+
+        recruiter_user = application.job_post.recruiter.user
+
+        # ✅ Notify recruiter via email
+        send_mail(
+            subject="Candidate Withdrew Application",
+            message=f"{request.user.username} has withdrawn their application for '{application.job_post.title}'.",
+            from_email='noreply@yourdomain.com',
+            recipient_list=[recruiter_user.email],
+        )
+
+        # ✅ Notify candidate
+        create_notification(
+            user=request.user,
+            title="You withdrew your application",
+            message=f"You have successfully withdrawn your application for '{application.job_post.title}'.",
+            notification_type="application"
+        )
+
+        return Response({'detail': 'Application withdrawn successfully. Recruiter notified.'}, status=200)
+
+
+
 class ResumeAnalysisView(APIView):
     permission_classes = [IsAuthenticated]
 

@@ -18,7 +18,7 @@ urlpatterns = [
 
     path('applications/<int:pk>/accept-offer/', CandidateAcceptOfferView.as_view(), name='accept-offer'),
     path('applications/<int:pk>/deny-offer/', CandidateDenyOfferView.as_view(), name='deny-offer'),
-
+    path('applications/<int:pk>/withdraw/', CandidateWithdrawView.as_view(), name='withdraw-application'),
     #resume_anaylisis
     path('resume-analysis/', ResumeAnalysisView.as_view(), name='resume-analysis'),
 ]

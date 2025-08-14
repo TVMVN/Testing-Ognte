@@ -116,4 +116,5 @@ class SalaryViewSet(viewsets.ModelViewSet):
 class PublicJobPostListView(generics.ListAPIView):
     queryset = JobPost.objects.filter(is_active=True)  
     serializer_class = JobPostingSerializer
-    permission_classes = [permissions.AllowAny]  
+    permission_classes = [permissions.AllowAny] 
+ 
