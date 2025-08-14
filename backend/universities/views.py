@@ -283,6 +283,8 @@ class RecruiterEngagementHubViewSet(viewsets.ViewSet):
         ).order_by('-accepted_offers')
 
         most_hiring_data = [{
+            "recruiter": rec.recruiter_name or rec.user.get_full_name() or rec.user.username,
+            "accepted_offers": rec.accepted_offers,
             "company_name": rec.company_name,
             "recruiter_name": rec.recruiter_name,
             "phone": rec.phone,
@@ -293,8 +295,9 @@ class RecruiterEngagementHubViewSet(viewsets.ViewSet):
             "bio": rec.bio,
             "logo": request.build_absolute_uri(rec.logo.url) if rec.logo else None,
             "accepted_offers": rec.accepted_offers
-        } for rec in most_hiring]
+        
 
+        } for rec in most_hiring]
 
         # === FINAL RESPONSE ===
         return Response({
