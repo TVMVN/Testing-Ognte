@@ -147,7 +147,7 @@ export default function ApplicationsPage() {
       const response = await makeAuthenticatedRequest(
         `${API_URL}/api/candidates/applications/${applicationId}/withdraw/`,
         {
-          method: 'DELETE',
+          method: 'POST',
         }
       );
 
