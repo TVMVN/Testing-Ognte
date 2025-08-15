@@ -13,7 +13,9 @@ import {
   X, 
   Menu,
   CheckCircle,
-  Circle
+  Circle,
+  UserCheck,
+  FileText
 } from "lucide-react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -38,7 +40,7 @@ import {
 // ✅ Enable relative time
 dayjs.extend(relativeTime);
 
-const NotificationPage = () => {
+const RecruiterNotificationPage = () => {
   const params = useParams();
   const router = useRouter();
   const username = params.username || "default";
@@ -50,13 +52,17 @@ const NotificationPage = () => {
   const [allRead, setAllRead] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Profile states - Fixed variable names
-  const [companyName, setCompanyName] = useState('');
-  const [email, setEmail] = useState('');
-  const [profilePic, setProfilePic] = useState(null);
+  // Recruiter profile states - Updated to match API structure
+  const [recruiterData, setRecruiterData] = useState(null);
   const [userFirstName, setUserFirstName] = useState('');
   const [userLastName, setUserLastName] = useState('');
-  const [shortCompanyName, setShortCompanyName] = useState('');
+  const [email, setEmail] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [logo, setLogo] = useState(null);
+  const [location, setLocation] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [website, setWebsite] = useState('');
+  const [shortUsername, setShortUsername] = useState('');
   
   const BACKEND_URL = 'http://localhost:8000'; 
 
@@ -221,10 +227,10 @@ const NotificationPage = () => {
     }
   };
 
-  // Generate short company name for routing
-  const generateShortName = (name) => {
-    if (!name) return '';
-    return name.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
+  // Generate short username for routing
+  const generateShortUsername = (username) => {
+    if (!username) return '';
+    return username.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 15);
   };
 
   // Fetch notifications and recruiter profile
@@ -236,21 +242,27 @@ const NotificationPage = () => {
       const profileResponse = await makeAuthenticatedRequest(`${BACKEND_URL}/api/recruiters/profile/`);
       if (profileResponse && profileResponse.ok) {
         const profileData = await profileResponse.json();
-        console.log('Profile data received:', profileData);
+        console.log('Recruiter profile data received:', profileData);
         
-        // Set profile data correctly
-        setCompanyName(profileData.company_name || 'Company Dashboard');
-        setEmail(profileData.user?.email || profileData.email || '');
+        // Set profile data correctly based on the provided API response structure
+        setRecruiterData(profileData);
         setUserFirstName(profileData.user?.first_name || '');
         setUserLastName(profileData.user?.last_name || '');
-        setProfilePic(profileData.logo);
-        setShortCompanyName(generateShortName(profileData.company_name));
+        setEmail(profileData.user?.email || '');
+        setCompanyName(profileData.company_name || '');
+        setLogo(profileData.logo);
+        setLocation(profileData.location || '');
+        setIndustry(profileData.industry || '');
+        setWebsite(profileData.website || '');
+        setShortUsername(generateShortUsername(profileData.user?.username || username));
       } else {
-        console.warn('Failed to fetch profile data');
+        console.warn('Failed to fetch recruiter profile data');
         // Set fallback values
-        setCompanyName('Company Dashboard');
-        setEmail('');
-        setShortCompanyName('company');
+        setUserFirstName('Recruiter');
+        setUserLastName('User');
+        setEmail('recruiter@example.com');
+        setCompanyName('Company');
+        setShortUsername(generateShortUsername(username));
       }
 
       // Fetch notifications
@@ -279,6 +291,8 @@ const NotificationPage = () => {
         notificationArray = notificationData.results;
       } else if (notificationData.notifications && Array.isArray(notificationData.notifications)) {
         notificationArray = notificationData.notifications;
+      } else if (notificationData.data && Array.isArray(notificationData.data)) {
+        notificationArray = notificationData.data;
       } else {
         console.warn("Unexpected notification data format:", notificationData);
         notificationArray = [];
@@ -287,13 +301,17 @@ const NotificationPage = () => {
       // Transform notifications to consistent format
       const transformedNotifications = notificationArray.map(notification => ({
         id: notification.id || Math.random().toString(36).substr(2, 9),
-        title: notification.title || notification.subject || 'Notification',
-        description: notification.message || notification.description || notification.body || 'No description',
-        read: notification.read || notification.is_read || false,
-        createdAt: notification.created_at || notification.createdAt || notification.timestamp || new Date().toISOString(),
-        type: notification.type || notification.notification_type || 'general',
+        title: notification.title || notification.subject || notification.name || 'Notification',
+        description: notification.message || notification.description || notification.body || notification.content || 'No description',
+        read: notification.read || notification.is_read || notification.read_status || false,
+        createdAt: notification.created_at || notification.createdAt || notification.timestamp || notification.date_created || new Date().toISOString(),
+        type: notification.type || notification.notification_type || notification.category || 'general',
+        priority: notification.priority || 'normal',
         ...notification
       }));
+      
+      // Sort by creation date (newest first)
+      transformedNotifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       
       setNotifications(transformedNotifications);
       setFilteredNotifications(transformedNotifications);
@@ -358,12 +376,14 @@ const NotificationPage = () => {
       
       if (!response || !response.ok) {
         console.warn('Failed to update notification status on server');
+        // Revert on failure
         setAllRead(!newReadStatus);
         const revertedNotifications = notifications.map((n) => ({ ...n, read: !newReadStatus }));
         setNotifications(revertedNotifications);
       }
     } catch (err) {
       console.error('Error updating notification status:', err);
+      // Revert on error
       setAllRead(!newReadStatus);
       const revertedNotifications = notifications.map((n) => ({ ...n, read: !newReadStatus }));
       setNotifications(revertedNotifications);
@@ -372,6 +392,7 @@ const NotificationPage = () => {
 
   const markAsRead = async (notificationId) => {
     try {
+      // Optimistically update UI
       setNotifications(prevNotifications =>
         prevNotifications.map(n =>
           n.id === notificationId ? { ...n, read: true } : n
@@ -385,6 +406,7 @@ const NotificationPage = () => {
       
       if (!response || !response.ok) {
         console.warn('Failed to mark notification as read on server');
+        // Could revert here if needed
       }
     } catch (err) {
       console.error('Error marking notification as read:', err);
@@ -394,7 +416,12 @@ const NotificationPage = () => {
   // Display name for the user/company
   const displayName = userFirstName && userLastName 
     ? `${userFirstName} ${userLastName}` 
-    : companyName || 'Dashboard';
+    : companyName || 'Recruiter Dashboard';
+
+  // Get profile initial
+  const profileInitial = companyName ? companyName.charAt(0).toUpperCase() : 
+                        userFirstName ? userFirstName.charAt(0).toUpperCase() : 
+                        recruiterData?.user?.username?.charAt(0).toUpperCase() || 'R';
 
   if (loading) {
     return (
@@ -413,8 +440,8 @@ const NotificationPage = () => {
       <nav className="px-4 sm:px-8 h-[70px] flex justify-between items-center sticky top-0 z-50 bg-white/90 backdrop-blur-lg border-b border-emerald-200 shadow-lg">
         <div className="flex items-center gap-4">
           <Link href="/">
-            <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-              OG<span className="text-black">nite</span>
+            <h1 className="text-3xl font-extrabold sm:text-2xl text-black">
+              OG<span className="text-green-400">nite</span>
             </h1>
           </Link>
           <div className="hidden sm:block w-px h-8 bg-emerald-200"></div>
@@ -445,7 +472,7 @@ const NotificationPage = () => {
           </div>
           
           {/* Back to Dashboard Button */}
-          <Link href={`/dashboard/recruiter/${shortCompanyName}`}>
+          <Link href={`/dashboard/recruiter/${shortUsername || username}`}>
             <Button className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" />
               Dashboard
@@ -459,15 +486,15 @@ const NotificationPage = () => {
                 variant="outline" 
                 className="border-green-400 transition-all duration-300 shadow-lg hover:shadow-xl p-1"
               >
-                {profilePic ? (
+                {logo ? (
                   <img
-                    src={profilePic}
-                    alt="Profile"
+                    src={logo}
+                    alt="Company Logo"
                     className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-md"
                   />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-300 to-green-500 flex items-center justify-center text-white font-bold">
-                    {companyName?.charAt(0) || userFirstName?.charAt(0) || 'C'}
+                    {profileInitial}
                   </div>
                 )}
               </Button>
@@ -478,15 +505,15 @@ const NotificationPage = () => {
             >
               <SheetHeader className="border-b border-green-200 pb-6 mb-6">
                 <div className="flex items-center space-x-4">
-                  {profilePic ? (
+                  {logo ? (
                     <img
-                      src={profilePic}
-                      alt="Profile"
+                      src={logo}
+                      alt="Company Logo"
                       className="w-16 h-16 rounded-full object-cover border-4 border-green-300 shadow-lg"
                     />
                   ) : (
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                      {companyName?.charAt(0) || userFirstName?.charAt(0) || 'C'}
+                      {profileInitial}
                     </div>
                   )}
                   <div>
@@ -494,11 +521,21 @@ const NotificationPage = () => {
                       {displayName}
                     </SheetTitle>
                     <SheetDescription className="text-green-600 font-semibold">
-                      Recruiter Dashboard
+                      {companyName || 'Recruiter Dashboard'}
                     </SheetDescription>
                     <SheetDescription className="text-gray-500 text-sm">
                       {email}
                     </SheetDescription>
+                    {industry && (
+                      <SheetDescription className="text-gray-500 text-xs">
+                        {industry}
+                      </SheetDescription>
+                    )}
+                    {location && (
+                      <SheetDescription className="text-gray-500 text-xs">
+                        {location}
+                      </SheetDescription>
+                    )}
                   </div>
                 </div>
               </SheetHeader>
@@ -511,17 +548,37 @@ const NotificationPage = () => {
                     icon: <Building2 className="w-4 h-4" />
                   },
                   { 
-                    href: `/dashboard/recruiter/${shortCompanyName}`, 
+                    href: `/dashboard/recruiter/${shortUsername || username}`, 
                     label: "Dashboard",
                     icon: <Building2 className="w-4 h-4" />
                   },
                   { 
-                    href: `/dashboard/recruiter/${shortCompanyName}/profile`, 
+                    href: `/dashboard/recruiter/${shortUsername || username}/applications`, 
+                    label: "Job Applications",
+                    icon: <FileText className="w-4 h-4" />
+                  },
+                  // { 
+                  //   href: `/dashboard/recruiter/${shortUsername || username}/employees`, 
+                  //   label: "Employees",
+                  //   icon: <UserCheck className="w-4 h-4" />
+                  // },
+                  { 
+                    href: `/dashboard/recruiter/${shortUsername || username}/listings`, 
+                    label: "Job Listings",
+                    icon: <Briefcase className="w-4 h-4" />
+                  },
+                  { 
+                    href: `/dashboard/recruiter/${shortUsername || username}/profile`, 
                     label: "Edit Profile",
                     icon: <Users className="w-4 h-4" />
                   },
                   { 
-                    href: `/dashboard/recruiter/${shortCompanyName}/settings`, 
+                    href: `/dashboard/recruiter/${shortUsername || username}/safety-tips`, 
+                    label: "Safety Tips",
+                    icon: <Users className="w-4 h-4" />
+                  },
+                  { 
+                    href: `/dashboard/recruiter/${shortUsername || username}/settings`, 
                     label: "Settings",
                     icon: <Settings className="w-4 h-4" />
                   },
@@ -568,11 +625,11 @@ const NotificationPage = () => {
             >
               <SheetHeader className="pb-6 border-b border-emerald-200">
                 <div className="flex items-center space-x-3">
-                  {profilePic ? (
-                    <img src={profilePic} alt="Profile" className="w-12 h-12 rounded-full object-cover border-2 border-emerald-300" />
+                  {logo ? (
+                    <img src={logo} alt="Company Logo" className="w-12 h-12 rounded-full object-cover border-2 border-emerald-300" />
                   ) : (
                     <div className="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold">
-                      {companyName?.charAt(0) || userFirstName?.charAt(0) || 'C'}
+                      {profileInitial}
                     </div>
                   )}
                   <div>
@@ -607,19 +664,27 @@ const NotificationPage = () => {
                   <Building2 className="w-5 h-5 text-emerald-600" />
                   <span>Home</span>
                 </Link>
-                <Link href={`/dashboard/recruiter/${shortCompanyName}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                <Link href={`/dashboard/recruiter/${shortUsername || username}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
                   <ArrowLeft className="w-5 h-5 text-emerald-600" />
                   <span>Back to Dashboard</span>
                 </Link>
-                <Link href={`/dashboard/recruiter/${shortCompanyName}/jobs`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
-                  <Briefcase className="w-5 h-5 text-emerald-600" />
-                  <span>Job Management</span>
+                <Link href={`/dashboard/recruiter/${shortUsername || username}/applications`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                  <FileText className="w-5 h-5 text-emerald-600" />
+                  <span>Job Applications</span>
                 </Link>
-                <Link href={`/dashboard/recruiter/${shortCompanyName}/profile`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                {/* <Link href={`/dashboard/recruiter/${shortUsername || username}/employees`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                  <UserCheck className="w-5 h-5 text-emerald-600" />
+                  <span>Employees</span>
+                </Link> */}
+                <Link href={`/dashboard/recruiter/${shortUsername || username}/listings`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                  <Briefcase className="w-5 h-5 text-emerald-600" />
+                  <span>Job Listings</span>
+                </Link>
+                <Link href={`/dashboard/recruiter/${shortUsername || username}/profile`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
                   <Users className="w-5 h-5 text-emerald-600" />
                   <span>Profile</span>
                 </Link>
-                <Link href={`/dashboard/recruiter/${shortCompanyName}/settings`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                <Link href={`/dashboard/recruiter/${shortUsername || username}/settings`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
                   <Settings className="w-5 h-5 text-emerald-600" />
                   <span>Settings</span>
                 </Link>
@@ -647,7 +712,7 @@ const NotificationPage = () => {
             </div>
           </div>
           <p className="text-slate-600">
-            Stay up to date with your recruitment activities and announcements
+            Stay up to date with your recruitment activities and job applications
           </p>
         </div>
 
@@ -720,7 +785,7 @@ const NotificationPage = () => {
               <BellIcon className="w-16 h-16 mx-auto mb-4 text-emerald-300" />
               <CardTitle className="text-xl text-slate-700 mb-2">No notifications yet</CardTitle>
               <CardDescription className="text-slate-500">
-                You'll see notifications here when there are updates about your recruitment activities.
+                You'll see notifications here when there are updates about job applications, candidates, and recruitment activities.
               </CardDescription>
             </CardContent>
           </Card>
@@ -758,9 +823,11 @@ const NotificationPage = () => {
                       )}
                       {note.type && (
                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          note.type === 'urgent' ? 'bg-red-100 text-red-700' :
-                          note.type === 'important' ? 'bg-amber-100 text-amber-700' :
-                          note.type === 'info' ? 'bg-blue-100 text-blue-700' :
+                          note.type === 'urgent' || note.priority === 'high' ? 'bg-red-100 text-red-700' :
+                          note.type === 'important' || note.priority === 'medium' ? 'bg-amber-100 text-amber-700' :
+                          note.type === 'info' || note.type === 'announcement' ? 'bg-blue-100 text-blue-700' :
+                          note.type === 'application' ? 'bg-purple-100 text-purple-700' :
+                          note.type === 'job' ? 'bg-green-100 text-green-700' :
                           'bg-gray-100 text-gray-600'
                         }`}>
                           {note.type.charAt(0).toUpperCase() + note.type.slice(1)}
@@ -784,8 +851,19 @@ const NotificationPage = () => {
                       note.description
                     )}
                   </CardDescription>
-                  <div className="text-xs text-emerald-600 font-medium">
-                    {dayjs(note.createdAt).fromNow()}
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-emerald-600 font-medium">
+                      {dayjs(note.createdAt).fromNow()}
+                    </div>
+                    {note.priority && note.priority !== 'normal' && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        note.priority === 'high' ? 'bg-red-50 text-red-600 border border-red-200' :
+                        note.priority === 'medium' ? 'bg-amber-50 text-amber-600 border border-amber-200' :
+                        'bg-gray-50 text-gray-600 border border-gray-200'
+                      }`}>
+                        {note.priority} priority
+                      </span>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -797,4 +875,4 @@ const NotificationPage = () => {
   );
 };
 
-export default NotificationPage;
+export default RecruiterNotificationPage;

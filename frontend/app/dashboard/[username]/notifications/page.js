@@ -42,7 +42,7 @@ dayjs.extend(relativeTime);
 const NotificationPage = () => {
   const params = useParams();
   const router = useRouter();
-  const shortUniName = params.shortUniName || "default";
+  const username = params.username || "default";
   const searchParams = useSearchParams();
   const userId = searchParams.get("userId") || "1";
   const [notifications, setNotifications] = useState([]);
@@ -51,14 +51,15 @@ const NotificationPage = () => {
   const [allRead, setAllRead] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Candidate profile states - Fixed and expanded
-  const [candidateName, setCandidateName] = useState('');
-  const [email, setEmail] = useState('');
-  const [profilePic, setProfilePic] = useState(null);
+  // Candidate profile states - Updated to match API structure
+  const [candidateData, setCandidateData] = useState(null);
   const [userFirstName, setUserFirstName] = useState('');
   const [userLastName, setUserLastName] = useState('');
-  const [shortCandidateName, setShortCandidateName] = useState('');
-  const [location, setLocation] = useState('');
+  const [email, setEmail] = useState('');
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [universityName, setUniversityName] = useState('');
+  const [city, setCity] = useState('');
+  const [shortUsername, setShortUsername] = useState('');
   
   const BACKEND_URL = 'http://localhost:8000'; 
 
@@ -223,10 +224,10 @@ const NotificationPage = () => {
     }
   };
 
-  // Generate short candidate name for routing
-  const generateShortName = (name) => {
-    if (!name) return '';
-    return name.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 15);
+  // Generate short username for routing
+  const generateShortUsername = (username) => {
+    if (!username) return '';
+    return username.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 15);
   };
 
   // Fetch notifications and candidate profile
@@ -240,20 +241,22 @@ const NotificationPage = () => {
         const profileData = await profileResponse.json();
         console.log('Candidate profile data received:', profileData);
         
-        // Set profile data correctly based on API response structure
-        setCandidateName(profileData.first_name || profileData.candidate_name || 'Candidate Dashboard');
-        setEmail(profileData.email || profileData.contact_email || '');
+        // Set profile data correctly based on the provided API response structure
+        setCandidateData(profileData);
         setUserFirstName(profileData.user?.first_name || '');
         setUserLastName(profileData.user?.last_name || '');
-        setProfilePic(profileData.profile_pic || profileData.logo || profileData.image);
-        setLocation(profileData.location || profileData.address || '');
-        // setShortCandidateName(generateShortName(profileData.name || profileData.candidate_name));
+        setEmail(profileData.user?.email || '');
+        setProfilePicture(profileData.profile_picture);
+        setUniversityName(profileData.university_name || '');
+        setCity(profileData.city || '');
+        setShortUsername(generateShortUsername(profileData.user?.username || username));
       } else {
         console.warn('Failed to fetch candidate profile data');
         // Set fallback values
-        setCandidateName('Candidate Dashboard');
-        setEmail('admin@candidate.edu');
-        setShortCandidateName('candidate');
+        setUserFirstName('Candidate');
+        setUserLastName('User');
+        setEmail('candidate@example.com');
+        setShortUsername(generateShortUsername(username));
       }
 
       // Fetch notifications
@@ -407,7 +410,11 @@ const NotificationPage = () => {
   // Display name for the user/candidate
   const displayName = userFirstName && userLastName 
     ? `${userFirstName} ${userLastName}` 
-    : candidateName || 'Candidate Dashboard';
+    : 'Candidate Dashboard';
+
+  // Get profile initial
+  const profileInitial = userFirstName ? userFirstName.charAt(0).toUpperCase() : 
+                        candidateData?.user?.username?.charAt(0).toUpperCase() || 'C';
 
   if (loading) {
     return (
@@ -426,7 +433,7 @@ const NotificationPage = () => {
       <nav className="px-4 sm:px-8 h-[70px] flex justify-between items-center sticky top-0 z-50 bg-white/90 backdrop-blur-lg border-b border-emerald-200 shadow-lg">
         <div className="flex items-center gap-4">
           <Link href="/">
-            <h1 className="text-3xl font-extrabold sm:text-2xl  text-black">
+            <h1 className="text-3xl font-extrabold sm:text-2xl text-black">
               OG<span className="text-green-400">nite</span>
             </h1>
           </Link>
@@ -458,7 +465,7 @@ const NotificationPage = () => {
           </div>
           
           {/* Back to Dashboard Button */}
-          <Link href={`/dashboard/candidate/${shortCandidateName || shortUniName}`}>
+          <Link href={`/dashboard/${shortUsername || username}`}>
             <Button className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" />
               Dashboard
@@ -472,15 +479,15 @@ const NotificationPage = () => {
                 variant="outline" 
                 className="border-green-400 transition-all duration-300 shadow-lg hover:shadow-xl p-1"
               >
-                {profilePic ? (
+                {profilePicture ? (
                   <img
-                    src={profilePic}
+                    src={profilePicture}
                     alt="Profile"
                     className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-md"
                   />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-300 to-green-500 flex items-center justify-center text-white font-bold">
-                    {candidateName?.charAt(0) || 'U'}
+                    {profileInitial}
                   </div>
                 )}
               </Button>
@@ -491,15 +498,15 @@ const NotificationPage = () => {
             >
               <SheetHeader className="border-b border-green-200 pb-6 mb-6">
                 <div className="flex items-center space-x-4">
-                  {profilePic ? (
+                  {profilePicture ? (
                     <img
-                      src={profilePic}
+                      src={profilePicture}
                       alt="Profile"
                       className="w-16 h-16 rounded-full object-cover border-4 border-green-300 shadow-lg"
                     />
                   ) : (
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                      {candidateName?.charAt(0) || 'U'}
+                      {profileInitial}
                     </div>
                   )}
                   <div>
@@ -507,16 +514,21 @@ const NotificationPage = () => {
                       {displayName}
                     </SheetTitle>
                     <SheetDescription className="text-green-600 font-semibold">
-                      Candidate Dashboard
+                      {candidateData?.professional_title || 'Candidate Dashboard'}
                     </SheetDescription>
                     <SheetDescription className="text-gray-500 text-sm">
                       {email}
                     </SheetDescription>
-                    {location && (
+                    {/* {universityName && (
                       <SheetDescription className="text-gray-500 text-xs">
-                        {location}
+                        {universityName}
                       </SheetDescription>
                     )}
+                    {city && (
+                      <SheetDescription className="text-gray-500 text-xs">
+                        {city}
+                      </SheetDescription>
+                    )} */}
                   </div>
                 </div>
               </SheetHeader>
@@ -529,22 +541,42 @@ const NotificationPage = () => {
                     icon: <Building2 className="w-4 h-4" />
                   },
                   { 
-                    href: `/dashboard/candidate/${shortCandidateName || shortUniName}`, 
+                    href: `/dashboard/${shortUsername || username}`, 
                     label: "Dashboard",
                     icon: <Building2 className="w-4 h-4" />
                   },
                   { 
-                    href: `/dashboard/candidate/${shortCandidateName || shortUniName}/students`, 
-                    label: "Student Management",
+                    href: `/dashboard/${shortUsername || username}/applications`, 
+                    label: "My Applications",
+                    icon: <Briefcase className="w-4 h-4" />
+                  },
+                  { 
+                    href: `/dashboard/${shortUsername || username}/courses`, 
+                    label: "Courses",
                     icon: <GraduationCap className="w-4 h-4" />
                   },
                   { 
-                    href: `/dashboard/candidate/${shortCandidateName || shortUniName}/profile`, 
+                    href: `/dashboard/${shortUsername || username}/internships`, 
+                    label: "Internships",
+                    icon: <Briefcase className="w-4 h-4" />
+                  },
+                  { 
+                    href: `/dashboard/${shortUsername || username}/profile`, 
                     label: "Edit Profile",
                     icon: <Users className="w-4 h-4" />
                   },
                   { 
-                    href: `/dashboard/candidate/${shortCandidateName || shortUniName}/settings`, 
+                    href: `/dashboard/${shortUsername || username}/resume-analysis`, 
+                    label: "Resume Analysis",
+                    icon: <Users className="w-4 h-4" />
+                  },
+                  { 
+                    href: `/dashboard/${shortUsername || username}/safety-tips`, 
+                    label: "Safety Tips",
+                    icon: <Users className="w-4 h-4" />
+                  },
+                  { 
+                    href: `/dashboard/${shortUsername || username}/settings`, 
                     label: "Settings",
                     icon: <Settings className="w-4 h-4" />
                   },
@@ -591,11 +623,11 @@ const NotificationPage = () => {
             >
               <SheetHeader className="pb-6 border-b border-emerald-200">
                 <div className="flex items-center space-x-3">
-                  {profilePic ? (
-                    <img src={profilePic} alt="Profile" className="w-12 h-12 rounded-full object-cover border-2 border-emerald-300" />
+                  {profilePicture ? (
+                    <img src={profilePicture} alt="Profile" className="w-12 h-12 rounded-full object-cover border-2 border-emerald-300" />
                   ) : (
                     <div className="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold">
-                      {candidateName?.charAt(0) || 'U'}
+                      {profileInitial}
                     </div>
                   )}
                   <div>
@@ -630,23 +662,27 @@ const NotificationPage = () => {
                   <Building2 className="w-5 h-5 text-emerald-600" />
                   <span>Home</span>
                 </Link>
-                <Link href={`/dashboard/candidate/${shortCandidateName || shortUniName}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                <Link href={`/dashboard/${shortUsername || username}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
                   <ArrowLeft className="w-5 h-5 text-emerald-600" />
                   <span>Back to Dashboard</span>
                 </Link>
-                <Link href={`/dashboard/candidate/${shortCandidateName || shortUniName}/student-activity`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
-                  <GraduationCap className="w-5 h-5 text-emerald-600" />
-                  <span>Student Activity</span>
-                </Link>
-                <Link href={`/dashboard/candidate/${shortCandidateName || shortUniName}/employer-engagement`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                <Link href={`/dashboard/${shortUsername || username}/applications`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
                   <Briefcase className="w-5 h-5 text-emerald-600" />
-                  <span>Employer Engagement</span>
+                  <span>My Applications</span>
                 </Link>
-                <Link href={`/dashboard/candidate/${shortCandidateName || shortUniName}/profile`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                <Link href={`/dashboard/${shortUsername || username}/courses`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                  <GraduationCap className="w-5 h-5 text-emerald-600" />
+                  <span>Courses</span>
+                </Link>
+                <Link href={`/dashboard/${shortUsername || username}/internships`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                  <Briefcase className="w-5 h-5 text-emerald-600" />
+                  <span>Internships</span>
+                </Link>
+                <Link href={`/dashboard/${shortUsername || username}/profile`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
                   <Users className="w-5 h-5 text-emerald-600" />
                   <span>Profile</span>
                 </Link>
-                <Link href={`/dashboard/candidate/${shortCandidateName || shortUniName}/settings`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                <Link href={`/dashboard/${shortUsername || username}/settings`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
                   <Settings className="w-5 h-5 text-emerald-600" />
                   <span>Settings</span>
                 </Link>
@@ -674,7 +710,7 @@ const NotificationPage = () => {
             </div>
           </div>
           <p className="text-slate-600">
-            Stay up to date with your candidate's activities and announcements
+            Stay up to date with your latest activities and announcements
           </p>
         </div>
 
@@ -747,7 +783,7 @@ const NotificationPage = () => {
               <BellIcon className="w-16 h-16 mx-auto mb-4 text-emerald-300" />
               <CardTitle className="text-xl text-slate-700 mb-2">No notifications yet</CardTitle>
               <CardDescription className="text-slate-500">
-                You'll see notifications here when there are updates from your candidate.
+                You'll see notifications here when there are updates for your account.
               </CardDescription>
             </CardContent>
           </Card>
