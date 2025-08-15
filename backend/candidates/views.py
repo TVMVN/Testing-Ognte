@@ -53,19 +53,23 @@ class ApplyToJobView(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 class CandidateDashboardMatchesView(APIView):
-    permission_classes = [IsAuthenticated, IsCandidateUser]
+    permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        candidate = request.user.candidate_profile.first()
-        if not candidate:
-            return Response({'error': 'Candidate profile not found.'}, status=404)
+    def get(self, request, candidate_id=None):
+        if candidate_id:
+            try:
+                candidate = Candidate.objects.get(id=candidate_id)
+            except Candidate.DoesNotExist:
+                return Response({'error': 'Candidate not found.'}, status=404)
+        else:
+            candidate = request.user.candidate_profile.first()
+            if not candidate:
+                return Response({'error': 'Candidate profile not found.'}, status=404)
 
         matches = CandidateJobMatch.objects.filter(candidate=candidate).order_by('-total_score')[:10]
         serializer = CandidateJobMatchSerializer(matches, many=True)
         return Response({'top_matches': serializer.data})
-    
 
 
 

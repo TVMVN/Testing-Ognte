@@ -16,6 +16,8 @@ urlpatterns = [
 
     # Dashboard
     path('matches/', RecruiterDashboardMatchesView.as_view(), name='recruiter-matches'),
+    path('matches/<int:job_id>/', RecruiterDashboardMatchesView.as_view(), name='recruiter-matches-by-job'),
+
 
     #Applications_View
     path('all-applications/', AllRecruiterApplicationsView.as_view(), name='recruiter-all-applications'),

@@ -13,6 +13,7 @@ urlpatterns = [
     path('toggle-university-visibility/', ToggleUniversityViewPermission.as_view(), name='toggle-university-visibility'),
 
     path('dashboard/matches/', CandidateDashboardMatchesView.as_view(), name='candidate-dashboard-matches'),
+    path('dashboard/matches/<int:candidate_id>/', CandidateDashboardMatchesView.as_view(), name='candidate-dashboard-matches-by-id'),
     path('dashboard/stats/', CandidateStatsView.as_view(), name='candidate-dashboard-stats'),
 
 

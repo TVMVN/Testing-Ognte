@@ -160,13 +160,29 @@ class EmployerAnalyticsViewSet(viewsets.ViewSet):
 
 
 class RecruiterDashboardMatchesView(APIView):
-    """Fetch top matched candidates for all jobs posted by a recruiter."""
+    """Fetch top matched candidates for all jobs posted by a recruiter or a specific job."""
     permission_classes = [IsAuthenticated, IsRecruiterUser]
 
-    def get(self, request):
+    def get(self, request, job_id=None):
         recruiter = request.user.recruiter
-        job_posts = JobPost.objects.filter(recruiter=recruiter)
 
+        # If job_id is provided, get matches for that specific job
+        if job_id:
+            try:
+                job = JobPost.objects.get(id=job_id, recruiter=recruiter)
+            except JobPost.DoesNotExist:
+                return Response({'error': 'Job not found or not owned by recruiter.'}, status=404)
+
+            matches = CandidateJobMatch.objects.filter(job_post=job).order_by('-total_score')[:10]
+            serialized_matches = CandidateJobMatchSerializer(matches, many=True).data
+            return Response({
+                'job_post': job.title,
+                'job_id': job.id,
+                'top_candidates': serialized_matches
+            })
+
+        # Otherwise, return matches for all jobs posted by recruiter
+        job_posts = JobPost.objects.filter(recruiter=recruiter)
         results = []
         for job in job_posts:
             matches = CandidateJobMatch.objects.filter(job_post=job).order_by('-total_score')[:10]
