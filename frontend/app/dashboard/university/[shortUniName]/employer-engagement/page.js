@@ -304,7 +304,7 @@ const EmployerEngagement = () => {
           const data = await employerResponse.json();
           console.log('API Response:', data);
           
-          // Handle the actual API structure based on the screenshot
+          // Handle the actual API structure
           if (data.overview && data.most_hiring) {
             // Set stats from overview
             setStats({
@@ -316,23 +316,38 @@ const EmployerEngagement = () => {
             });
 
             // Transform most_hiring data to match our UI expectations
-            const transformedEmployers = data.most_hiring.map((recruiter, index) => ({
-              id: index + 1,
-              name: recruiter.recruiter || 'Unknown Recruiter',
-              company_name: recruiter.recruiter || 'Unknown Company',
-              email: `contact@${recruiter.recruiter?.toLowerCase().replace(/\s+/g, '')}.com`,
-              phone: '+1-XXX-XXX-XXXX',
-              industry: data.overview.top_industry || 'Technology',
-              location: 'Lagos, Nigeria',
-              active_jobs: recruiter.accepted_offers || 0,
-              engagement_score: Math.min(100, (recruiter.accepted_offers || 0) * 10), // Calculate based on offers
-              rating: (4.0 + Math.random()).toFixed(1), // Generate reasonable rating
-              employees: Math.floor(Math.random() * 500) + 50,
-              joined_date: '2024',
-              job_title: 'HR Manager',
-              website: `https://${recruiter.recruiter?.toLowerCase().replace(/\s+/g, '')}.com`,
-              profile_pic: null
-            }));
+            const transformedEmployers = data.most_hiring.map((recruiter, index) => {
+              const acceptedOffers = recruiter.accepted_offers || 0;
+              // Calculate engagement score based on accepted offers (normalize to 0-100)
+              const maxOffers = Math.max(...data.most_hiring.map(r => r.accepted_offers || 0));
+              const engagementScore = maxOffers > 0 ? Math.round((acceptedOffers / maxOffers) * 100) : 0;
+              
+              // Calculate rating based on engagement score (3.0-5.0 scale)
+              const rating = (3.0 + (engagementScore / 100) * 2.0).toFixed(1);
+              
+              // Use recruiter_name if available, fallback to company_name
+              const recruiterName = recruiter.recruiter || recruiter.company_name || 'Unknown Recruiter';
+              const companyName = recruiter.company_name || 'Unknown Company';
+              
+              return {
+                id: index + 1,
+                name: recruiterName,
+                company_name: companyName,
+                email: `contact@${companyName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
+                phone: recruiter.phone || '+234-XXX-XXX-XXXX',
+                industry: recruiter.industry || data.overview.top_industry || 'Technology',
+                location: recruiter.location || 'Lagos, Nigeria',
+                active_jobs: acceptedOffers,
+                engagement_score: engagementScore,
+                rating: rating,
+                company_size: recruiter.company_size || '51-200',
+                joined_date: '2024',
+                job_title: 'HR Manager',
+                website: recruiter.website || `https://${companyName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
+                profile_pic: recruiter.logo,
+                bio: recruiter.bio || 'Professional recruiting services'
+              };
+            });
 
             setEmployers(transformedEmployers);
 
@@ -383,6 +398,7 @@ const EmployerEngagement = () => {
     const colors = {
       'Technology': 'bg-blue-100 text-blue-800',
       'Remote Hiring': 'bg-purple-100 text-purple-800',
+      'IT': 'bg-blue-100 text-blue-800',
       'Healthcare': 'bg-green-100 text-green-800',
       'Finance': 'bg-yellow-100 text-yellow-800',
       'Education': 'bg-purple-100 text-purple-800',
@@ -624,7 +640,7 @@ const EmployerEngagement = () => {
                               {employer.company_name}
                             </div>
                             <div className="text-xs text-slate-400">
-                              {employer.employees} employees • Joined {employer.joined_date}
+                              {employer.company_size} employees • Joined {employer.joined_date}
                             </div>
                           </div>
                         </div>

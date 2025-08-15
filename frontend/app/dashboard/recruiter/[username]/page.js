@@ -677,7 +677,7 @@ const internshipData = {
         <div className="flex items-center gap-2">
           <Link href={"/"}>
             <h1 className="text-xl font-bold text-white">
-              OG<span className="text-black">nite</span>
+              OG<span className="text-white">nite</span>
             </h1>
           </Link>
         </div>
