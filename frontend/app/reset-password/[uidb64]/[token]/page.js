@@ -83,6 +83,7 @@ const PasswordResetConfirmPage = () => {
         },
         body: JSON.stringify({
           new_password: newPassword,
+          confirm_new_password: confirmPassword,
         }),
       });
 

@@ -378,7 +378,7 @@ class DeleteAccountView(APIView):
             <p>Hello {user.username},</p>
             <p>Your account has been successfully deleted from our platform.</p>
             <p>If you did not request this, please contact our support team immediately.</p>
-            <p>Best regards,<br>Your Platform Team</p>
+            <p>Best regards,<br>OGnite Management Team</p>
         </body></html>
         """
 
@@ -390,7 +390,7 @@ class DeleteAccountView(APIView):
         If you did not request this, please contact our support team immediately.
 
         Best regards,
-        Your Platform Team
+        OGnite Management Team
         """
 
         try:

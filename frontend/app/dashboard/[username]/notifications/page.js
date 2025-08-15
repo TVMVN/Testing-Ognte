@@ -13,14 +13,13 @@ dayjs.extend(relativeTime);
 const NotificationPage = () => {
   const params = useParams();
   const router = useRouter();
-  const shortUniName = params.shortUniName || "default"; // Fallback to 'default' if not specified
+  const username = params.username || "default"; // Fallback to 'default' if not specified
   const searchParams = useSearchParams();
   const userId = searchParams.get("userId") || "1"; // Default to user 1 if not specified
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [allRead, setAllRead] = useState(false);
-
-  const BACKEND_URL = "http://localhost:8000"
+  const BACKEND_URL = 'http://localhost:8000'; 
 
   // Error handler
   const ErrorHandler = {
@@ -67,7 +66,7 @@ const NotificationPage = () => {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
+
       const res = await fetch(`${BACKEND_URL}/api/auth/refresh/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -232,7 +231,7 @@ const NotificationPage = () => {
   // Send bulk update to server using the correct endpoint
   try {
     const response = await makeAuthenticatedRequest(
-      `${BACKEND_URL}/api/auth/notifications/read-all/`, 
+      `${BACKEND_URL}/api/auth/notifications/read-all/`, // Changed from /read/ to /read-all/
       {
         method: 'POST',
         body: JSON.stringify({ read: newReadStatus })
@@ -266,7 +265,7 @@ const NotificationPage = () => {
       
       // Send update to server
       const response = await makeAuthenticatedRequest(
-        `http://127.0.0.1:8000/api/auth/notifications/${notificationId}/read/`,
+        `${BACKEND_URL}/api/auth/notifications/${notificationId}/read/`,
         { method: 'POST' }
       );
       
@@ -282,7 +281,7 @@ const NotificationPage = () => {
     <div className="min-h-screen bg-green-50 text-gray-800 p-6">
       <div className="max-w-4xl mx-auto">
         <header className="flex items-center justify-between mb-6">
-          <Link href={`/dashboard/recruiter/${username}`}>
+          <Link href={`/dashboard/${username}`}>
             <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
               <BellIcon className="w-8 h-8 text-green-400" />
               <h1 className="text-3xl font-bold text-green-500">Notifications</h1>
