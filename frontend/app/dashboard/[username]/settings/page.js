@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Moon, Sun, Monitor } from "lucide-react";
+import { Moon, Sun, Monitor, AlertTriangle } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
   DropdownMenu,
@@ -15,19 +15,42 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import Link from "next/link";
-import {useParams} from 'next/navigation';
+import {useParams, useRouter} from 'next/navigation';
 
 export default function SettingsPage() {
   const params = useParams();
+  const router = useRouter();
   const username = params.username;
-  const [accountInfo, setAccountInfo] = useState({});
-  const [passwordInfo, setPasswordInfo] = useState({});
-  const [notificationSettings, setNotificationSettings] = useState({});
+  
+  const [passwordInfo, setPasswordInfo] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmNewPassword: ''
+  });
+  
+  const [deleteAccountInfo, setDeleteAccountInfo] = useState({
+    password: '',
+    confirmationText: '',
+    confirm_deletion: false
+  });
+  
   const [savingButton, setSavingButton] = useState(''); 
-  const [activityTrackingEnabled, setActivityTrackingEnabled] = useState(true);
   const [currentTheme, setCurrentTheme] = useState('light');
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { theme, setTheme } = useTheme();
 
   // Use consistent base URL
@@ -163,6 +186,8 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error('Error fetching theme preference:', error);
+    } finally {
+      setInitialLoading(false);
     }
   };
 
@@ -173,7 +198,7 @@ export default function SettingsPage() {
       const response = await makeAuthenticatedRequest(
         `${API_BASE_URL}/api/auth/theme/`,
         {
-          method: 'PUT', // Changed from POST to PUT
+          method: 'PUT',
           body: JSON.stringify({ theme: selectedTheme })
         }
       );
@@ -215,18 +240,271 @@ export default function SettingsPage() {
     }
   };
 
+  // Handle password change
+  const handlePasswordChange = async () => {
+    // Validation
+    if (!passwordInfo.currentPassword || !passwordInfo.newPassword || !passwordInfo.confirmNewPassword) {
+      toast.error('All password fields are required.', {
+        style: {
+          background: '#000000',
+          color: '#ff7a7a',
+          border: '1px solid #ff7a7a',
+        },
+        description: 'Please fill in all password fields.',
+        duration: 4000,
+        position: 'top-right',
+        icon: '❌',
+      });
+      return;
+    }
+
+    if (passwordInfo.newPassword !== passwordInfo.confirmNewPassword) {
+      toast.error('New passwords do not match.', {
+        style: {
+          background: '#000000',
+          color: '#ff7a7a',
+          border: '1px solid #ff7a7a',
+        },
+        description: 'Please ensure both new password fields match.',
+        duration: 4000,
+        position: 'top-right',
+        icon: '❌',
+      });
+      return;
+    }
+
+    if (passwordInfo.newPassword.length < 6) {
+      toast.error('Password too short.', {
+        style: {
+          background: '#000000',
+          color: '#ff7a7a',
+          border: '1px solid #ff7a7a',
+        },
+        description: 'Password must be at least 6 characters long.',
+        duration: 4000,
+        position: 'top-right',
+        icon: '❌',
+      });
+      return;
+    }
+
+    setSavingButton('password');
+    
+    try {
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE_URL}/api/auth/change-password/`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            old_password: passwordInfo.currentPassword,
+            new_password: passwordInfo.newPassword,
+            confirm_new_password: passwordInfo.confirmNewPassword
+          })
+        }
+      );
+
+      if (response && response.ok) {
+        // Clear password fields on success
+        setPasswordInfo({
+          currentPassword: '',
+          newPassword: '',
+          confirmNewPassword: ''
+        });
+        
+        toast.success('Password changed successfully!', {
+          style: {
+            background: '#000000',
+            color: '#ffffff',
+            border: '1px solid #22c55e',
+          },
+          description: 'Your password has been updated.',
+          duration: 4000,
+          position: 'top-right',
+          icon: '✅',
+        });
+      } else {
+        const errorData = response ? await response.json() : {};
+        let errorMessage = 'Failed to change password.';
+        
+        // Handle specific error messages from the API
+        if (errorData.old_password) {
+          errorMessage = 'Current password is incorrect.';
+        } else if (errorData.new_password) {
+          errorMessage = errorData.new_password[0] || 'New password is invalid.';
+        } else if (errorData.confirm_new_password) {
+          errorMessage = 'Password confirmation does not match.';
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+
+        toast.error(errorMessage, {
+          style: {
+            background: '#000000',
+            color: '#ff7a7a',
+            border: '1px solid #ff7a7a',
+          },
+          description: 'Please check your inputs and try again.',
+          duration: 4000,
+          position: 'top-right',
+          icon: '❌',
+        });
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
+      toast.error('Failed to change password.', {
+        style: {
+          background: '#000000',
+          color: '#ff7a7a',
+          border: '1px solid #ff7a7a',
+        },
+        description: 'Please try again later.',
+        duration: 4000,
+        position: 'top-right',
+        icon: '❌',
+      });
+    } finally {
+      setSavingButton('');
+    }
+  };
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    // Validation
+    if (!deleteAccountInfo.password) {
+      toast.error('Password is required to delete your account.', {
+        style: {
+          background: '#000000',
+          color: '#ff7a7a',
+          border: '1px solid #ff7a7a',
+        },
+        description: 'Please enter your current password.',
+        duration: 4000,
+        position: 'top-right',
+        icon: '❌',
+      });
+      return;
+    }
+
+    if (deleteAccountInfo.confirmationText !== 'DELETE') {
+      toast.error('Confirmation text is incorrect.', {
+        style: {
+          background: '#000000',
+          color: '#ff7a7a',
+          border: '1px solid #ff7a7a',
+        },
+        description: 'Please type "DELETE" to confirm account deletion.',
+        duration: 4000,
+        position: 'top-right',
+        icon: '❌',
+      });
+      return;
+    }
+
+    // Set confirm_deletion to true when user types DELETE correctly
+    const confirm_deletion = deleteAccountInfo.confirmationText === 'DELETE';
+
+    setSavingButton('delete');
+    
+    try {
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE_URL}/api/auth/delete-account/`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            password: deleteAccountInfo.password,
+            confirm_deletion: confirm_deletion
+          })
+        }
+      );
+
+      if (response && response.ok) {
+        // Clear all tokens and user data
+        clearTokens();
+        
+        toast.success('Account deleted successfully!', {
+          style: {
+            background: '#000000',
+            color: '#ffffff',
+            border: '1px solid #22c55e',
+          },
+          description: 'Your account has been permanently deleted.',
+          duration: 4000,
+          position: 'top-right',
+          icon: '✅',
+        });
+
+        // Redirect to home/login page after a short delay
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+
+      } else {
+        const errorData = response ? await response.json() : {};
+        let errorMessage = 'Failed to delete account.';
+        
+        // Handle specific error messages from the API
+        if (errorData.password) {
+          errorMessage = 'Incorrect password provided.';
+        } else if (errorData.confirm_deletion) {
+          errorMessage = 'Account deletion must be confirmed.';
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+
+        toast.error(errorMessage, {
+          style: {
+            background: '#000000',
+            color: '#ff7a7a',
+            border: '1px solid #ff7a7a',
+          },
+          description: 'Please check your inputs and try again.',
+          duration: 4000,
+          position: 'top-right',
+          icon: '❌',
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast.error('Failed to delete account.', {
+        style: {
+          background: '#000000',
+          color: '#ff7a7a',
+          border: '1px solid #ff7a7a',
+        },
+        description: 'Please try again later.',
+        duration: 4000,
+        position: 'top-right',
+        icon: '❌',
+      });
+    } finally {
+      setSavingButton('');
+      setIsDeleteDialogOpen(false);
+      setDeleteAccountInfo({
+        password: '',
+        confirmationText: '',
+        confirm_deletion: false
+      });
+    }
+  };
+
   // Load theme preference on component mount
   useEffect(() => {
-    // Check if user is authenticated before fetching
     const token = getAccessToken();
     if (token) {
       fetchThemePreference();
     } else {
-      console.warn('No access token found, skipping theme preference fetch');
+      console.warn('No access token found, skipping data fetch');
+      setInitialLoading(false);
     }
   }, []);
 
   const handleSave = async (data, type) => {
+    if (type === 'password') {
+      await handlePasswordChange();
+      return;
+    }
+
+    // Fallback for other types
     setSavingButton(type);
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000)); 
@@ -270,46 +548,67 @@ export default function SettingsPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-muted py-10 px-6 md:px-20">
-     <Link href={`/dashboard/${username}`}> <p className = "dark:text-green-200 text-green-800 cursor-pointer">Back to Dashboard</p></Link>
-      <h1 className="text-4xl font-bold mb-8 dark:text-green-300 text-green-800">Settings</h1>
-
-      {/* Account Information */}
-      <SettingsSection title="Account Information">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="fullname">Full Name</Label>
-            <Input id="fullname" placeholder="John Doe" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input id="email" type="email" placeholder="john@example.com" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
-            <Input id="phone" type="tel" placeholder="+1 234 567 890" />
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-muted py-10 px-6 md:px-20">
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading your settings...</p>
           </div>
         </div>
-        <Button
-          onClick={() => handleSave(accountInfo, 'account')}
-          disabled={savingButton === 'account'}
-          className="mt-6"
-        >
-          {savingButton === 'account' ? 'Saving...' : 'Save Changes'}
-        </Button>
-      </SettingsSection>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-muted py-10 px-6 md:px-20">
+      <Link href={`/dashboard/university/${username}`}>
+        <p className="dark:text-green-200 text-green-800 cursor-pointer hover:underline">← Back to Dashboard</p>
+      </Link>
+      <h1 className="text-4xl font-bold mb-8 dark:text-green-300 text-green-800">Settings</h1>
 
       {/* Password and Security */}
       <SettingsSection title="Password & Security">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="current-password">Current Password</Label>
-            <Input id="current-password" type="password" placeholder="********" />
+            <Input 
+              id="current-password" 
+              type="password" 
+              placeholder="********"
+              value={passwordInfo.currentPassword}
+              onChange={(e) => setPasswordInfo(prev => ({
+                ...prev,
+                currentPassword: e.target.value
+              }))}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="new-password">New Password</Label>
-            <Input id="new-password" type="password" placeholder="********" />
+            <Input 
+              id="new-password" 
+              type="password" 
+              placeholder="********"
+              value={passwordInfo.newPassword}
+              onChange={(e) => setPasswordInfo(prev => ({
+                ...prev,
+                newPassword: e.target.value
+              }))}
+            />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="confirm-new-password">Confirm New Password</Label>
+            <Input 
+              id="confirm-new-password" 
+              type="password" 
+              placeholder="********"
+              value={passwordInfo.confirmNewPassword}
+              onChange={(e) => setPasswordInfo(prev => ({
+                ...prev,
+                confirmNewPassword: e.target.value
+              }))}
+            />
           </div>
         </div>
         <Button
@@ -317,36 +616,10 @@ export default function SettingsPage() {
           disabled={savingButton === 'password'}
           className="mt-6"
         >
-          {savingButton === 'password' ? 'Saving...' : 'Update Password'}
+          {savingButton === 'password' ? 'Updating...' : 'Update Password'}
         </Button>
       </SettingsSection>
 
-      {/* Notification Settings */}
-      <SettingsSection title="Notification Settings">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <Label>Email Notifications</Label>
-            <Switch />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label>SMS Notifications</Label>
-            <Switch />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label>Push Notifications</Label>
-            <Switch />
-          </div>
-        </div>
-        <Button
-          onClick={() => handleSave(notificationSettings, 'notification')}
-          disabled={savingButton === 'notification'}
-          className="mt-6"
-        >
-          {savingButton === 'notification' ? 'Saving...' : 'Save Changes'}
-        </Button>
-      </SettingsSection>
-
-      {/* Theme Settings */}
       <SettingsSection title="Theme Preference">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -367,7 +640,6 @@ export default function SettingsPage() {
                   <Moon className="h-4 w-4 mr-2" />
                   Dark
                 </DropdownMenuItem>
-                
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -377,57 +649,96 @@ export default function SettingsPage() {
         </div>
       </SettingsSection>
 
-      {/* Activity Tracking Toggle for Candidates */}
-      {true /* Replace this with a check for candidate role */ && (
-        <SettingsSection title="Activity Tracking">
-          <div className="flex items-center justify-between">
-            <Label>Allow University to Track Activity</Label>
-            <Switch
-              checked={activityTrackingEnabled}
-              onCheckedChange={(checked) => setActivityTrackingEnabled(checked)}
-            />
-          </div>
-        </SettingsSection>
-      )}
-
-      {/* Danger Zone */}
       <SettingsSection title="Danger Zone ⚠️">
         <div className="space-y-4">
-          <Button
-            variant="destructive"
-            className="w-full"
-            onClick={() => toast.error('Account deactivation in progress.', {
-              style: {
-                background: '#000000',
-                color: '#ff7a7a',
-                border: '1px solid #ff7a7a',
-              },
-              description: 'Please wait...',
-              duration: 4000,
-              position: 'top-right',
-              icon: '⚡',
-            })}
-          >
-            Deactivate Account
-          </Button>
+          <div className="p-4 border-2 border-destructive/20 rounded-lg bg-destructive/5">
+            <div className="flex items-center gap-3 mb-3">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <h3 className="font-semibold text-destructive">Delete Account</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Once you delete your account, there is no going back. Please be certain. 
+              This action will permanently delete your profile, posts, and all associated data.
+            </p>
+            
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="w-full">
+                  Delete Account Permanently
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    Delete Account
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-3">
+                    <p>This action cannot be undone. This will permanently delete your account and remove all your data from our servers.</p>
+                    <p className="font-semibold">To confirm, please:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-sm">
+                      <li>Enter your current password</li>
+                      <li>Type "DELETE" in the confirmation field</li>
+                    </ol>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="delete-password">Current Password</Label>
+                    <Input
+                      id="delete-password"
+                      type="password"
+                      placeholder="Enter your current password"
+                      value={deleteAccountInfo.password}
+                      onChange={(e) => setDeleteAccountInfo(prev => ({
+                        ...prev,
+                        password: e.target.value
+                      }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="delete-confirmation">
+                      Type <span className="font-mono font-bold">DELETE</span> to confirm
+                    </Label>
+                    <Input
+                      id="delete-confirmation"
+                      placeholder="DELETE"
+                      value={deleteAccountInfo.confirmationText}
+                      onChange={(e) => setDeleteAccountInfo(prev => ({
+                        ...prev,
+                        confirmationText: e.target.value
+                      }))}
+                    />
+                  </div>
+                </div>
 
-          <Button
-            variant="destructive"
-            className="w-full"
-            onClick={() => toast.error('Permanent deletion started.', {
-              style: {
-                background: '#000000',
-                color: '#ff7a7a',
-                border: '1px solid #ff7a7a',
-              },
-              description: 'This cannot be undone!',
-              duration: 4000,
-              position: 'top-right',
-              icon: '🔥',
-            })}
-          >
-            Delete Account Permanently
-          </Button>
+                <AlertDialogFooter>
+                  <AlertDialogCancel 
+                    onClick={() => {
+                      setDeleteAccountInfo({
+                        password: '',
+                        confirmationText: '',
+                        confirm_deletion: false
+                      });
+                    }}
+                  >
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteAccount}
+                    disabled={savingButton === 'delete' || 
+                             !deleteAccountInfo.password || 
+                             deleteAccountInfo.confirmationText !== 'DELETE'}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    {savingButton === 'delete' ? 'Deleting...' : 'Delete Account'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </SettingsSection>
     </div>
