@@ -17,6 +17,7 @@ from matching.models import CandidateJobMatch
 from matching.serializers import CandidateJobMatchSerializer
 
 from users.utils import create_notification
+from django.utils import timezone
 
 
 class MyApplicationsView(generics.ListAPIView):
@@ -53,6 +54,8 @@ class ApplyToJobView(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+
 class CandidateDashboardMatchesView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -63,15 +66,19 @@ class CandidateDashboardMatchesView(APIView):
             except Candidate.DoesNotExist:
                 return Response({'error': 'Candidate not found.'}, status=404)
         else:
-            candidate = request.user.candidate_profile
+            candidate = getattr(request.user, 'candidate_profile', None)
             if not candidate:
                 return Response({'error': 'Candidate profile not found.'}, status=404)
 
-        matches = CandidateJobMatch.objects.filter(candidate=candidate).order_by('-total_score')[:10]
+        # Filter matches by only jobs that are active and not expired
+        matches = CandidateJobMatch.objects.filter(
+            candidate=candidate,
+            job_post__is_active=True,
+            job_post__application_deadline__gte=timezone.now().date()
+        ).order_by('-total_score')[:10]
+
         serializer = CandidateJobMatchSerializer(matches, many=True)
         return Response({'top_matches': serializer.data})
-
-
 
 class CandidateStatsView(APIView):
     permission_classes = [IsAuthenticated, IsCandidateUser]
