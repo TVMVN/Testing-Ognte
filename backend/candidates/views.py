@@ -63,7 +63,7 @@ class CandidateDashboardMatchesView(APIView):
             except Candidate.DoesNotExist:
                 return Response({'error': 'Candidate not found.'}, status=404)
         else:
-            candidate = request.user.candidate_profile.first()
+            candidate = request.user.candidate_profile
             if not candidate:
                 return Response({'error': 'Candidate profile not found.'}, status=404)
 

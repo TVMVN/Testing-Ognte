@@ -38,11 +38,11 @@ def infer_industry_from_title(title):
 
 # ---------- Score Calculators ----------
 
-def calculate_skill_score(candidate_skills, job_skills):
-    if not candidate_skills or not job_skills:
+def calculate_skill_score(candidate_skills, job_required_skills):
+    if not candidate_skills or not job_required_skills:
         return 0.0
     candidate_set = set(map(str.lower, candidate_skills))
-    job_set = set(map(str.lower, job_skills))
+    job_set = set(map(str.lower, job_required_skills))
     return round(len(candidate_set & job_set) / max(len(job_set), 1), 4)
 
 def calculate_total_score(match):
