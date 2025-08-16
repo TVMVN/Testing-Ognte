@@ -20,7 +20,7 @@ from candidates.permissions import IsCandidateUser
 from recruiters.permissions import IsRecruiterUser
 from rest_framework.permissions import IsAdminUser
 
-from applications.models import JobPost, Application  # Make sure Application is imported
+from applications.models import JobPost, Application  
 
 class RunMatchingEngine(APIView):
     permission_classes = [IsAdminUser]

@@ -86,10 +86,14 @@ class JobPostingCreateSerializer(serializers.ModelSerializer):
     required_skills = serializers.ListField(
         child=serializers.CharField(), required=False
     )
+    company_name = serializers.CharField(
+        source="recruiter.company_name", read_only=True
+    )
 
     class Meta:
         model = JobPost
         exclude = ['recruiter', 'created_at', 'updated_at']
+    
 
     def create(self, validated_data):
         user = self.context['request'].user
