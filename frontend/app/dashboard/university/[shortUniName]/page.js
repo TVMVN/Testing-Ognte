@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   Search, Users, Briefcase, Award, TrendingUp, Activity, Building2,
-  Bell, ChevronDown, BarChart3, Eye, Mail
+  Bell, ChevronDown, BarChart3, Eye, Mail, Settings, X, Menu
 } from 'lucide-react'
 import {
   Card,
@@ -69,6 +69,8 @@ const UniversityDashboard = () => {
   const [dashboardStats, setDashboardStats] = useState(null)
   const [studentProgress, setStudentProgress] = useState(null)
   const [activityData, setActivityData] = useState(null)
+  const [notificationCount, setNotificationCount] = useState(0)
+
   
   // University Profile States
   const [universityName, setUniversityName] = useState('')
@@ -83,6 +85,14 @@ const UniversityDashboard = () => {
     }
     return null;
   };
+
+    const handleLogoutWithConfirmation = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      clearTokens();
+      router.push('/login');
+    }
+  };
+
 
   const getRefreshToken = () => {
     if (typeof window !== 'undefined') {
@@ -310,6 +320,8 @@ const UniversityDashboard = () => {
     router.push('/login');
   };
 
+  const SHEET_SIDES= "right"
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 flex items-center justify-center">
@@ -370,8 +382,7 @@ const UniversityDashboard = () => {
           </div>
         </div>
         
-        {/* Desktop Navigation */}
-        <div className="hidden lg:flex items-center space-x-6">
+             <div className="hidden lg:flex items-center space-x-6">
           <div className="flex items-center space-x-2 border border-emerald-200 rounded-xl px-4 py-2 bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all">
             <Search className="w-5 h-5 text-emerald-600" />
             <input
@@ -395,55 +406,179 @@ const UniversityDashboard = () => {
           <Link href={`/dashboard/university/${shortUniName}/notifications`}>
             <Button variant="outline" className="border-emerald-300 hover:bg-emerald-50 relative">
               <Bell className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-pulse"></span>
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center animate-pulse">
+                  {notificationCount}
+                </span>
+              )}
             </Button>
           </Link>
-          <Button 
-            onClick={handleLogout}
-            variant="outline" 
-            className="border-red-300 hover:bg-red-50 text-red-700"
-          >
-            Logout
-          </Button>
-        </div>
 
-        {/* Mobile Menu */}
-        <div className="lg:hidden">
+          {/* Profile Menu - Fixed */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" className="border-emerald-300 hover:bg-emerald-50">
+              <Button 
+                variant="outline" 
+                className="bg-gradient-to-r from-green-500 to-green-600 border-green-400 hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl p-1"
+              >
                 {profilePic ? (
-                  <img src={profilePic} alt="Profile" className="w-8 h-8 rounded-full object-cover" />
+                  <img
+                    src={profilePic}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-md"
+                  />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-300 to-green-500 flex items-center justify-center text-white font-bold">
                     {universityName?.charAt(0) || 'U'}
                   </div>
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[350px]">
-              <SheetHeader className="pb-6">
-                <SheetTitle>{universityName || 'University Dashboard'}</SheetTitle>
-                <SheetDescription>{email}</SheetDescription>
+            <SheetContent 
+              side="right"
+              className="bg-gradient-to-br from-white via-green-50 to-green-100 border-l-2 border-green-200 w-[350px] rounded-l-3xl"
+            >
+              <SheetHeader className="border-b border-green-200 pb-6 mb-6">
+                <div className="flex items-center space-x-4">
+                  {profilePic ? (
+                    <img
+                      src={profilePic}
+                      alt="Profile"
+                      className="w-16 h-16 rounded-full object-cover border-4 border-green-300 shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                      {universityName?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                  <div>
+                    <SheetTitle className="text-gray-800 text-xl">
+                      {universityName}
+                    </SheetTitle>
+                    <SheetDescription className="text-green-600 font-semibold">
+                      University Dashboard
+                    </SheetDescription>
+                    <SheetDescription className="text-gray-500 text-sm">
+                      {email}
+                    </SheetDescription>
+                  </div>
+                </div>
               </SheetHeader>
-              <div className="space-y-2">
+              
+              <div className="space-y-3">
+                {[
+                  { 
+                    href: "/", 
+                    label: "Home",
+                    icon: <Building2 className="w-4 h-4" />
+                  },
+                  { 
+                    href: `/dashboard/university/${shortUniName}/profile`, 
+                    label: "Edit Profile",
+                    icon: <Users className="w-4 h-4" />
+                  },
+                  { 
+                    href: `/dashboard/university/${shortUniName}/settings`, 
+                    label: "Settings",
+                    icon: <Settings className="w-4 h-4" />
+                  },
+                  { 
+                    href: `/dashboard/university/${shortUniName}/notifications`, 
+                    label: "Notifications",
+                    icon: <Bell className="w-4 h-4" />
+                  },
+                ].map((item, index) => (
+                  <Link key={index} href={item.href}>
+                    <div className="flex items-center space-x-3 p-3 rounded-xl hover:bg-green-200/50 transition-all duration-300 cursor-pointer group">
+                      <span className="text-green-600 group-hover:text-green-700">
+                        {item.icon}
+                      </span>
+                      <span className="text-gray-700 font-medium group-hover:text-green-700">
+                        {item.label}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+                
+                <div 
+                  onClick={handleLogoutWithConfirmation}
+                  className="flex items-center space-x-3 p-3 rounded-xl hover:bg-red-100 transition-all duration-300 cursor-pointer group mt-6 border-t border-green-200 pt-6"
+                >
+                  <span className="text-red-600 group-hover:text-red-700">
+                    <X className="w-4 h-4" />
+                  </span>
+                  <span className="text-gray-700 font-medium group-hover:text-red-600">
+                    Logout
+                  </span>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+
+                {/* Mobile Menu - Hamburger Style */}
+        <div className="lg:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="border-emerald-300 hover:bg-emerald-50">
+                <Menu className="w-5 h-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent 
+              side="right" 
+              className="w-[350px] bg-gradient-to-br from-white via-emerald-50 to-green-50"
+            >
+              <SheetHeader className="pb-6 border-b border-emerald-200">
+                <div className="flex items-center space-x-3">
+                  {profilePic ? (
+                    <img src={profilePic} alt="Profile" className="w-12 h-12 rounded-full object-cover border-2 border-emerald-300" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold">
+                      {universityName?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                  <div>
+                    <SheetTitle className="text-left">{universityName || 'University Dashboard'}</SheetTitle>
+                    <SheetDescription className="text-left">{email}</SheetDescription>
+                  </div>
+                </div>
+              </SheetHeader>
+              
+              <div className="space-y-2 mt-6">
                 <Link href="/" className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                  <Building2 className="w-5 h-5 text-emerald-600" />
                   <span>Home</span>
                 </Link>
                 <Link href={`/dashboard/university/${shortUniName}/student-activity`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
-                  <div className="w-2 h-2 bg-emerald-600 rounded-full"></div>
+                  <Users className="w-5 h-5 text-emerald-600" />
                   <span>Student Activity</span>
                 </Link>
                 <Link href={`/dashboard/university/${shortUniName}/employer-engagement`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
-                  <div className="w-2 h-2 bg-emerald-700 rounded-full"></div>
+                  <Briefcase className="w-5 h-5 text-emerald-600" />
                   <span>Employer Engagement</span>
+                </Link>
+                <Link href={`/dashboard/university/${shortUniName}/profile`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                  <Users className="w-5 h-5 text-emerald-600" />
+                  <span>Profile</span>
+                </Link>
+                <Link href={`/dashboard/university/${shortUniName}/settings`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors">
+                  <Settings className="w-5 h-5 text-emerald-600" />
+                  <span>Settings</span>
+                </Link>
+                <Link href={`/dashboard/university/${shortUniName}/notifications`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition-colors relative">
+                  <Bell className="w-5 h-5 text-emerald-600" />
+                  <span>Notifications</span>
+                  {notificationCount > 0 && (
+                    <span className="absolute right-3 top-3 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+                      {notificationCount}
+                    </span>
+                  )}
                 </Link>
                 <button 
                   onClick={handleLogout}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-red-50 transition-colors text-red-700 w-full text-left"
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-red-50 transition-colors text-red-700 w-full text-left border-t border-emerald-200 mt-4 pt-4"
                 >
-                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <X className="w-5 h-5 text-red-600" />
                   <span>Logout</span>
                 </button>
               </div>

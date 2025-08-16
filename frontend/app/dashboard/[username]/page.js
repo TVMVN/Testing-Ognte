@@ -767,7 +767,7 @@ if (data.skills && Array.isArray(data.skills) && data.skills.length > 0) {
                 <SheetTrigger asChild>
                   <Button 
                     variant="outline" 
-                    className="bg-gradient-to-r from-green-500 to-green-600 border-green-400 hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl p-1"
+                    className=" border-green-400 bg-transparent hover:bg-transparent transition-all duration-300 shadow-lg hover:shadow-xl p-1"
                   >
                     {profilePic ? (
                       <img

@@ -34,6 +34,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { toast } from "sonner";
 
 export default function EnhancedSettingsPage() {
   // Get username from URL params (mock implementation for artifact)
@@ -62,47 +63,10 @@ export default function EnhancedSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [activityTracking, setActivityTracking] = useState(true); // Default is ON
 
   // Use consistent base URL
   const API_BASE_URL = 'http://127.0.0.1:8000';
-
-  // Toast notification system
-  const showToast = (type, message, description = '') => {
-    // Create toast element
-    const toast = document.createElement('div');
-    toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transform transition-all duration-300 ${
-      type === 'success' 
-        ? 'bg-emerald-600 text-white border border-emerald-500' 
-        : 'bg-red-600 text-white border border-red-500'
-    }`;
-    
-    toast.innerHTML = `
-      <div class="flex items-center gap-3">
-        <div class="text-xl">${type === 'success' ? '✅' : '❌'}</div>
-        <div class="flex-1">
-          <div class="font-semibold">${message}</div>
-          ${description ? `<div class="text-sm opacity-90 mt-1">${description}</div>` : ''}
-        </div>
-      </div>
-    `;
-    
-    document.body.appendChild(toast);
-    
-    // Animate in
-    setTimeout(() => {
-      toast.style.transform = 'translateX(0)';
-    }, 100);
-    
-    // Remove after 4 seconds
-    setTimeout(() => {
-      toast.style.transform = 'translateX(100%)';
-      setTimeout(() => {
-        if (document.body.contains(toast)) {
-          document.body.removeChild(toast);
-        }
-      }, 300);
-    }, 4000);
-  };
 
   // Authentication helpers
   const getAccessToken = () => {
@@ -168,7 +132,9 @@ export default function EnhancedSettingsPage() {
     
     if (!token) {
       console.error('No access token found');
-      showToast('error', 'Authentication Error', 'Please log in again.');
+      toast.error('Authentication Error', {
+        description: 'Authentication failed, please log in again.'
+      });
       return null;
     }
 
@@ -209,17 +175,23 @@ export default function EnhancedSettingsPage() {
           clearTimeout(retryTimeoutId);
         } else {
           console.error('Token refresh failed');
-          showToast('error', 'Session Expired', 'Please log in again.');
+          toast.error('Session Expired', {
+            description: 'Please log in again.'
+          });
           return null;
         }
       }
       return response;
     } catch (error) {
       if (error.name === 'AbortError') {
-        showToast('error', 'Request Timeout', 'The request took too long to complete.');
+        toast.error('Request Timeout', {
+          description: 'The request took too long to complete.'
+        });
       } else {
         console.error('Request failed:', error);
-        showToast('error', 'Network Error', 'Please check your connection and try again.');
+        toast.error('Network Error', {
+          description: 'Please check your connection and try again.'
+        });
       }
       throw error;
     }
@@ -238,11 +210,15 @@ export default function EnhancedSettingsPage() {
         setCurrentTheme(data.theme || 'light');
       } else if (response) {
         console.error('Failed to fetch theme preference:', response.status);
-        showToast('error', 'Failed to Load Theme', 'Using default theme.');
+        toast.error('Preference Error', {
+          description: 'Failed to load theme, using default theme.'
+        });
       }
     } catch (error) {
       console.error('Error fetching theme preference:', error);
-      showToast('error', 'Connection Error', 'Could not load your theme preference.');
+      toast.error('Connection Error', {
+        description: 'Could not load your theme preference.'
+      });
     } finally {
       setInitialLoading(false);
     }
@@ -262,7 +238,9 @@ export default function EnhancedSettingsPage() {
       
       if (response && response.ok) {
         setCurrentTheme(selectedTheme);
-        showToast('success', 'Theme Updated!', 'Your theme preference has been saved.');
+        toast.success('Theme Updated!', {
+          description: 'Your theme preference has been saved.'
+        });
       } else {
         const errorText = response ? await response.text() : 'Unknown error';
         console.error('Failed to save theme preference:', response?.status, errorText);
@@ -270,7 +248,9 @@ export default function EnhancedSettingsPage() {
       }
     } catch (error) {
       console.error('Error saving theme preference:', error);
-      showToast('error', 'Save Failed', 'Could not save your theme preference.');
+      toast.error('Save Failed', {
+        description: 'Could not save your theme preference.'
+      });
     } finally {
       setLoading(false);
     }
@@ -280,17 +260,23 @@ export default function EnhancedSettingsPage() {
   const handlePasswordChange = async () => {
     // Validation
     if (!passwordInfo.currentPassword || !passwordInfo.newPassword || !passwordInfo.confirmNewPassword) {
-      showToast('error', 'Missing Information', 'All password fields are required.');
+      toast.error('Missing Information', {
+        description: 'All password fields are required.'
+      });
       return;
     }
 
     if (passwordInfo.newPassword !== passwordInfo.confirmNewPassword) {
-      showToast('error', 'Passwords Don\'t Match', 'Please ensure both new password fields match.');
+      toast.error('Passwords Don\'t Match', {
+        description: 'Please ensure both new password fields match.'
+      });
       return;
     }
 
     if (passwordInfo.newPassword.length < 6) {
-      showToast('error', 'Password Too Short', 'Password must be at least 6 characters long.');
+      toast.error('Password Too Short', {
+        description: 'Password must be at least 6 characters long.'
+      });
       return;
     }
 
@@ -316,8 +302,10 @@ export default function EnhancedSettingsPage() {
           newPassword: '',
           confirmNewPassword: ''
         });
-        
-        showToast('success', 'Password Updated!', 'Your password has been changed successfully.');
+
+        toast.success('Password Updated!', {
+          description: 'Your password has been changed successfully.'
+        });
       } else {
         const errorData = response ? await response.json() : {};
         let errorMessage = 'Failed to change password.';
@@ -333,11 +321,15 @@ export default function EnhancedSettingsPage() {
           errorMessage = errorData.detail;
         }
 
-        showToast('error', 'Password Change Failed', errorMessage);
+        toast.error('Password Change Failed', {
+          description: errorMessage
+        });
       }
     } catch (error) {
       console.error('Error changing password:', error);
-      showToast('error', 'Update Failed', 'Could not update your password.');
+      toast.error('Update Failed', {
+        description: 'Could not update your password.'
+      });
     } finally {
       setSavingButton('');
     }
@@ -347,12 +339,16 @@ export default function EnhancedSettingsPage() {
   const handleDeleteAccount = async () => {
     // Validation
     if (!deleteAccountInfo.password) {
-      showToast('error', 'Password Required', 'Please enter your current password.');
+      toast.error('Password Required', {
+        description: 'Please enter your current password.'
+      });
       return;
     }
 
     if (deleteAccountInfo.confirmationText !== 'DELETE') {
-      showToast('error', 'Confirmation Required', 'Please type "DELETE" to confirm account deletion.');
+      toast.error('Confirmation Required', {
+        description: 'Please type "DELETE" to confirm account deletion.'
+      });
       return;
     }
 
@@ -373,8 +369,10 @@ export default function EnhancedSettingsPage() {
       if (response && response.ok) {
         // Clear all tokens and user data
         clearTokens();
-        
-        showToast('success', 'Account Deleted', 'Your account has been permanently deleted.');
+
+        toast.success('Account Deleted', {
+          description: 'Your account has been permanently deleted.'
+        });
 
         // Redirect to login page after a short delay
         setTimeout(() => {
@@ -394,11 +392,15 @@ export default function EnhancedSettingsPage() {
           errorMessage = errorData.detail;
         }
 
-        showToast('error', 'Deletion Failed', errorMessage);
+        toast.error('Deletion Failed', {
+          description: errorMessage
+        });
       }
     } catch (error) {
       console.error('Error deleting account:', error);
-      showToast('error', 'Delete Failed', 'Could not delete your account.');
+      toast.error('Delete Failed', {
+        description: 'Could not delete your account.'
+      });
     } finally {
       setSavingButton('');
       setIsDeleteDialogOpen(false);
@@ -410,14 +412,61 @@ export default function EnhancedSettingsPage() {
     }
   };
 
+  // Update activity tracking preference
+  const updateActivityTrackingPreference = async (enabled) => {
+    try {
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE_URL}/api/candidates/toggle-university-visibility/`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ activity_tracking_enabled: enabled })
+        }
+      );
+      
+      if (response && response.ok) {
+        setActivityTracking(enabled);
+        toast.success('Privacy Settings Updated', {
+          description: `Activity tracking has been ${enabled ? 'enabled' : 'disabled'}.`
+        });
+      } else {
+        throw new Error('Failed to update activity tracking preference');
+      }
+    } catch (error) {
+      console.error('Error updating activity tracking:', error);
+      toast.error('Update Failed', {
+        description: 'Could not update your activity tracking preference.'
+      });
+    }
+  };
+
+  // Fetch activity tracking preference
+  const fetchActivityTrackingPreference = async () => {
+    try {
+      const response = await makeAuthenticatedRequest(
+        `${API_BASE_URL}/api/candidates/toggle-university-visibility/`,
+        { method: 'GET' }
+      );
+      
+      if (response && response.ok) {
+        const data = await response.json();
+        setActivityTracking(data.activity_tracking_enabled ?? true); // Default true if not set
+      }
+    } catch (error) {
+      console.error('Error fetching activity tracking preference:', error);
+    }
+  };
+
   // Load theme preference on component mount
   useEffect(() => {
     const token = getAccessToken();
     if (token) {
       fetchThemePreference();
+      fetchActivityTrackingPreference();
     } else {
       console.warn('No access token found, skipping data fetch');
-      showToast('error', 'Authentication Required', 'Please log in to access settings.');
+      toast.error('Authentication Required', {
+        description: 'Please log in to access settings.'
+      });
       setInitialLoading(false);
     }
   }, []);
@@ -698,6 +747,86 @@ export default function EnhancedSettingsPage() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Privacy & Activity Section */}
+          <Card className="bg-white/70 backdrop-blur-sm border-emerald-200 shadow-lg hover:shadow-xl transition-all duration-300">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100">
+                  <User className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl text-slate-800">Privacy & Activity</CardTitle>
+                  <CardDescription className="text-slate-600">
+                    Control how your activity is tracked and shared with universities
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                <div className="space-y-2 flex-1">
+                  <Label className="text-lg font-semibold text-slate-700">University Activity Tracking</Label>
+                  <p className="text-sm text-slate-600 max-w-md">
+                    Allow universities to track your application activity, job views, and engagement metrics. 
+                    This helps them provide better opportunities and support.
+                  </p>
+                  <div className="flex items-center gap-2 text-xs">
+                    <div className={`w-2 h-2 rounded-full ${activityTracking ? 'bg-emerald-500' : 'bg-slate-400'}`}></div>
+                    <span className={`font-medium ${activityTracking ? 'text-emerald-600' : 'text-slate-500'}`}>
+                      {activityTracking ? 'Tracking Enabled' : 'Tracking Disabled'}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={activityTracking}
+                    onCheckedChange={updateActivityTrackingPreference}
+                    className="data-[state=checked]:bg-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {/* Activity Tracking Details */}
+              <div className="p-4 bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl border border-slate-200">
+                <h4 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  What gets tracked when enabled:
+                </h4>
+                <ul className="text-sm text-slate-600 space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 mt-0.5">•</span>
+                    <span>Job applications and application status</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 mt-0.5">•</span>
+                    <span>Job post views and engagement</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 mt-0.5">•</span>
+                    <span>Profile completion and updates</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 mt-0.5">•</span>
+                    <span>Communication and response patterns</span>
+                  </li>
+                </ul>
+                
+                {!activityTracking && (
+                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-700 flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <span>
+                        <strong>Note:</strong> Disabling activity tracking may limit universities' ability 
+                        to provide personalized opportunities and support.
+                      </span>
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
